@@ -1,0 +1,52 @@
+module Main
+
+import Sdl2
+
+// The built-in 8x8 font at several sizes, with a bouncing banner. Escape quits.
+fn Main() {
+    Sdl2.Init().Unwrap()
+    defer Sdl2.Quit()
+    let win: Sdl2.Window = Sdl2.Window.Open("text", 640, 360).Unwrap()
+    defer win.Close()
+    let ren: Sdl2.Renderer = win.Renderer().Unwrap()
+    defer ren.Close()
+    let pump: Sdl2.EventPump = Sdl2.EventPump.New()
+    defer pump.Close()
+
+    let banner: String = "zevic + SDL2"
+    let bw: I32 = Sdl2.TextWidth(banner, 3)
+    mut x: I32 = 20
+    mut dx: I32 = 3
+    mut frames: I64 = 0
+    let start: F64 = Sdl2.Seconds()
+    mut running: Bool = true
+    while (running) {
+        while (true) {
+            match (pump.Poll()) {
+                Some(ev) => match (ev) {
+                    Sdl2.Event.Quit => { running = false },
+                    Sdl2.Event.KeyDown(key, _) => { if (key == Sdl2.KeyEscape) { running = false } },
+                    _ => {},
+                },
+                None => break,
+            }
+        }
+        x += dx
+        if (x < 0 || x + bw > win.Width()) { dx = 0 - dx }
+
+        ren.Color(14, 18, 32, 255)
+        ren.Clear()
+        ren.Color(255, 200, 0, 255)
+        ren.Text(x, 40, banner, 3)
+        ren.Color(220, 220, 220, 255)
+        ren.Text(20, 110, "scale 1: The quick brown fox jumps over the lazy dog 0123456789", 1)
+        ren.Text(20, 130, "scale 2: Hello, SDL2!", 2)
+        ren.Color(120, 200, 255, 255)
+        ren.Text(20, 180, "multi-line text\nstarts a new line\nat the same x", 2)
+        ren.Color(160, 160, 160, 255)
+        let secs: F64 = Sdl2.Seconds() - start
+        ren.Text(20, 330, "frames: ${frames}   seconds: ${secs.ToI64()}", 1)
+        ren.Present()
+        frames += 1
+    }
+}
