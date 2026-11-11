@@ -1,0 +1,8 @@
+[package]
+name = "Sdl2"
+version = "0.1.0"
+kind = "lib"
+zevic = ">=0.4"
+
+[native]
+libs = ["SDL2"]

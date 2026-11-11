@@ -1,0 +1,94 @@
+module Sdl2.Audio
+
+// Sound output through SDL's audio queue: you push signed 16-bit samples, SDL plays them.
+// No callbacks, so it works the same on every OS.
+//
+//     import Sdl2.Audio as Audio
+//     Audio.Init().Unwrap()
+//     let dev: Audio.Device = Audio.Device.Open(44100, 1).Unwrap()
+//     defer dev.Close()
+//     dev.Queue(Audio.Sine(440.0, 0.5, 44100, 0.3))
+
+import Zevic.Math
+
+extern "C" {
+    fn zsdl_init_sub(flags: CInt) -> CInt
+    fn zsdl_const(id: CInt) -> CInt
+    fn zsdl_error() -> CString
+    fn zsdl_audio_open(freq: CInt, channels: CInt) -> CInt
+    fn zsdl_audio_close(dev: CInt) -> CVoid
+    fn zsdl_audio_queue(dev: CInt, data: *I16, bytes: CInt) -> CInt
+    fn zsdl_audio_queued(dev: CInt) -> CInt
+    fn zsdl_audio_clear(dev: CInt) -> CVoid
+    fn zsdl_audio_pause(dev: CInt, on: CInt) -> CVoid
+}
+
+fn fail(what: String) -> Error {
+    Error.New(ErrorKind.Other, "${what}: ${String.FromCLossy(zsdl_error())}")
+}
+
+// Starts the audio subsystem (Sdl2.Init() must have run first, or this starts SDL's audio on its own).
+fn Init() -> Result<Unit, Error> {
+    if (zsdl_init_sub(zsdl_const(60.ToCInt())).ToI32() != 0) {
+        return Err(fail("SDL_InitSubSystem(audio)"))
+    }
+    Ok(())
+}
+
+class Device {
+    id: CInt
+    channels: I32
+    rate: I32
+
+    fn Init(id: CInt, channels: I32, rate: I32) {
+        this.id = id
+        this.channels = channels
+        this.rate = rate
+    }
+
+    // Opens the default output with 16-bit samples. channels: 1 mono, 2 stereo (samples are interleaved).
+    static fn Open(rate: I32, channels: I32) -> Result<Device, Error> {
+        let id: CInt = zsdl_audio_open(rate.ToCInt(), channels.ToCInt())
+        if (id.ToI32() == 0) {
+            return Err(fail("SDL_OpenAudioDevice"))
+        }
+        Ok(Device.New(id, channels, rate))
+    }
+
+    fn Close() { zsdl_audio_close(this.id) }
+    fn Rate() -> I32 { this.rate }
+    fn Channels() -> I32 { this.channels }
+
+    // Adds samples to the end of the queue.
+    fn Queue(samples: Array<I16>) -> Result<Unit, Error> {
+        if (samples.IsEmpty()) {
+            return Ok(())
+        }
+        let bytes: I64 = samples.Len() * 2
+        if (zsdl_audio_queue(this.id, samples.Ptr(), bytes.ToI32Wrap().ToCInt()).ToI32() != 0) {
+            return Err(fail("SDL_QueueAudio"))
+        }
+        Ok(())
+    }
+
+    // How many samples are still waiting to be played (all channels together).
+    fn Queued() -> I64 { zsdl_audio_queued(this.id).ToI32().ToI64() / 2 }
+
+    // Drops everything that has not played yet.
+    fn Clear() { zsdl_audio_clear(this.id) }
+    fn Pause(on: Bool) { zsdl_audio_pause(this.id, if (on) { 1.ToCInt() } else { 0.ToCInt() }) }
+}
+
+// A mono sine wave: `freq` Hz, `seconds` long, `volume` 0.0 to 1.0.
+fn Sine(freq: F64, seconds: F64, rate: I32, volume: F64) -> Array<I16> {
+    mut out: Array<I16> = []
+    let n: I64 = (seconds * rate.ToF64()).ToI64()
+    let pi2: F64 = 6.283185307179586
+    mut i: I64 = 0
+    while (i < n) {
+        let v: F64 = Math.Sin(pi2 * freq * i.ToF64() / rate.ToF64()) * volume * 32767.0
+        out.Push(v.ToI64().ToI16Wrap())
+        i += 1
+    }
+    out
+}

@@ -1,0 +1,464 @@
+module Sdl2
+
+// SDL2 for Zevic. The C declarations stay in this module; callers see only Zevic types.
+//
+//     import Sdl2
+//
+//     fn Main() {
+//         Sdl2.Init().Unwrap()
+//         defer Sdl2.Quit()
+//         let win: Sdl2.Window = Sdl2.Window.New("hello", 640, 480).Unwrap()
+//         ...
+//     }
+
+extern "C" {
+    fn zsdl_init(flags: CInt) -> CInt
+    fn zsdl_quit() -> CVoid
+    fn zsdl_error() -> CString
+    fn zsdl_const(id: CInt) -> CInt
+
+    fn zsdl_window_new(title: CString, x: CInt, y: CInt, w: CInt, h: CInt, flags: CInt) -> *CVoid
+    fn zsdl_window_free(w: *CVoid) -> CVoid
+    fn zsdl_window_set_title(w: *CVoid, t: CString) -> CVoid
+    fn zsdl_window_w(w: *CVoid) -> CInt
+    fn zsdl_window_h(w: *CVoid) -> CInt
+
+    fn zsdl_renderer_new(win: *CVoid, flags: CInt) -> *CVoid
+    fn zsdl_renderer_free(r: *CVoid) -> CVoid
+    fn zsdl_set_color(r: *CVoid, cr: CInt, cg: CInt, cb: CInt, ca: CInt) -> CInt
+    fn zsdl_clear(r: *CVoid) -> CInt
+    fn zsdl_present(r: *CVoid) -> CVoid
+    fn zsdl_draw_point(r: *CVoid, x: CInt, y: CInt) -> CInt
+    fn zsdl_draw_line(r: *CVoid, x1: CInt, y1: CInt, x2: CInt, y2: CInt) -> CInt
+    fn zsdl_draw_rect(r: *CVoid, x: CInt, y: CInt, w: CInt, h: CInt) -> CInt
+    fn zsdl_fill_rect(r: *CVoid, x: CInt, y: CInt, w: CInt, h: CInt) -> CInt
+
+    fn zsdl_texture_new(r: *CVoid, w: CInt, h: CInt) -> *CVoid
+    fn zsdl_texture_free(t: *CVoid) -> CVoid
+    fn zsdl_texture_update(t: *CVoid, pixels: *U32, pitch: CInt) -> CInt
+    fn zsdl_texture_draw(r: *CVoid, t: *CVoid) -> CInt
+
+    fn zsdl_ticks() -> CLongLong
+    fn zsdl_delay(ms: CInt) -> CVoid
+
+    fn zsdl_event_new() -> *CVoid
+    fn zsdl_event_free(e: *CVoid) -> CVoid
+    fn zsdl_poll(e: *CVoid) -> CInt
+    fn zsdl_ev_type(e: *CVoid) -> CInt
+    fn zsdl_ev_key(e: *CVoid) -> CInt
+    fn zsdl_ev_scancode(e: *CVoid) -> CInt
+    fn zsdl_ev_repeat(e: *CVoid) -> CInt
+    fn zsdl_ev_mouse_x(e: *CVoid) -> CInt
+    fn zsdl_ev_mouse_y(e: *CVoid) -> CInt
+    fn zsdl_ev_button(e: *CVoid) -> CInt
+    fn zsdl_ev_wheel_y(e: *CVoid) -> CInt
+    fn zsdl_ev_window_event(e: *CVoid) -> CInt
+
+    fn zsdl_push_quit() -> CInt
+    fn zsdl_key_down(scancode: CInt) -> CInt
+    fn zsdl_mouse_x() -> CInt
+    fn zsdl_mouse_y() -> CInt
+    fn zsdl_mouse_buttons() -> CInt
+
+    fn zsdl_hint(name: CString, value: CString) -> CVoid
+    fn zsdl_version() -> CString
+
+    fn zsdl_window_set_size(w: *CVoid, cw: CInt, ch: CInt) -> CVoid
+    fn zsdl_window_set_pos(w: *CVoid, x: CInt, y: CInt) -> CVoid
+    fn zsdl_window_x(w: *CVoid) -> CInt
+    fn zsdl_window_y(w: *CVoid) -> CInt
+    fn zsdl_window_min_size(w: *CVoid, cw: CInt, ch: CInt) -> CVoid
+    fn zsdl_window_fullscreen(w: *CVoid, mode: CInt) -> CInt
+    fn zsdl_window_show(w: *CVoid, on: CInt) -> CVoid
+    fn zsdl_window_raise(w: *CVoid) -> CVoid
+    fn zsdl_window_resizable(w: *CVoid, on: CInt) -> CVoid
+    fn zsdl_display_w(idx: CInt) -> CInt
+    fn zsdl_display_h(idx: CInt) -> CInt
+
+    fn zsdl_set_blend(r: *CVoid, mode: CInt) -> CInt
+    fn zsdl_set_logical(r: *CVoid, w: CInt, h: CInt) -> CInt
+    fn zsdl_set_clip(r: *CVoid, x: CInt, y: CInt, w: CInt, h: CInt) -> CInt
+    fn zsdl_clear_clip(r: *CVoid) -> CInt
+    fn zsdl_output_w(r: *CVoid) -> CInt
+    fn zsdl_output_h(r: *CVoid) -> CInt
+    fn zsdl_read_pixels(r: *CVoid, x: CInt, y: CInt, w: CInt, h: CInt, pixels: *U32) -> CInt
+
+    fn zsdl_texture_from_pixels(r: *CVoid, pixels: *U32, w: CInt, h: CInt) -> *CVoid
+    fn zsdl_texture_from_bmp(r: *CVoid, path: CString) -> *CVoid
+    fn zsdl_texture_w(t: *CVoid) -> CInt
+    fn zsdl_texture_h(t: *CVoid) -> CInt
+    fn zsdl_texture_color(t: *CVoid, r: CInt, g: CInt, b: CInt, a: CInt) -> CInt
+    fn zsdl_texture_copy(r: *CVoid, t: *CVoid, sx: CInt, sy: CInt, sw: CInt, sh: CInt, dx: CInt, dy: CInt, dw: CInt, dh: CInt, angle: CDouble, flip: CInt) -> CInt
+
+    fn zsdl_ev_mod(e: *CVoid) -> CInt
+    fn zsdl_ev_text(e: *CVoid) -> CString
+    fn zsdl_ev_wheel_x(e: *CVoid) -> CInt
+    fn zsdl_ev_win_w(e: *CVoid) -> CInt
+    fn zsdl_ev_win_h(e: *CVoid) -> CInt
+    fn zsdl_ev_pad_button(e: *CVoid) -> CInt
+    fn zsdl_ev_pad_which(e: *CVoid) -> CInt
+    fn zsdl_text_input(on: CInt) -> CVoid
+    fn zsdl_mod_state() -> CInt
+
+    fn zsdl_clipboard_get() -> CString
+    fn zsdl_clipboard_set(text: CString) -> CInt
+
+    fn zsdl_perf_counter() -> CLongLong
+    fn zsdl_perf_freq() -> CLongLong
+    fn zsdl_message_box(win: *CVoid, kind: CInt, title: CString, msg: CString) -> CInt
+}
+
+fn k(id: I32) -> I32 { zsdl_const(id.ToCInt()).ToI32() }
+
+fn fail(what: String) -> Error {
+    Error.New(ErrorKind.Other, "${what}: ${String.FromCLossy(zsdl_error())}")
+}
+
+// ---- keys (SDL keycodes) ----
+let KeyEscape: I32 = 27
+let KeySpace: I32 = 32
+let KeyReturn: I32 = 13
+let KeyRight: I32 = 1073741903
+let KeyLeft: I32 = 1073741904
+let KeyDown: I32 = 1073741905
+let KeyUp: I32 = 1073741906
+let KeyTab: I32 = 9
+let KeyBackspace: I32 = 8
+let KeyDelete: I32 = 127
+let KeyF1: I32 = 1073741882
+
+// Modifier bits for KeyDown / ModState.
+let ModShift: I32 = 0x0003
+let ModCtrl: I32 = 0x00C0
+let ModAlt: I32 = 0x0300
+let ModGui: I32 = 0x0C00
+
+fn HasMod(mods: I32, mask: I32) -> Bool { (mods & mask) != 0 }
+
+// Mouse buttons in MouseDown / MouseUp.
+let ButtonLeft: I32 = 1
+let ButtonMiddle: I32 = 2
+let ButtonRight: I32 = 3
+
+// ---- lifecycle ----
+
+// Starts SDL. Pass the subsystems you need, or use Init() for video + events + timer.
+fn Init() -> Result<Unit, Error> {
+    let flags: I32 = k(0) | k(2) | k(3)
+    if (zsdl_init(flags.ToCInt()).ToI32() != 0) {
+        return Err(fail("SDL_Init"))
+    }
+    Ok(())
+}
+
+fn Quit() { zsdl_quit() }
+
+// Use SDL's dummy video and audio drivers: no window appears and no sound plays.
+// Call this before Init(). Meant for tests and CI; works the same on every OS.
+fn Headless() {
+    zsdl_hint("SDL_VIDEODRIVER".ToC(), "dummy".ToC())
+    zsdl_hint("SDL_AUDIODRIVER".ToC(), "dummy".ToC())
+}
+
+// true: scale textures with nearest-neighbour (crisp pixel art); false: linear. Call before creating textures.
+fn PixelArt(on: Bool) {
+    zsdl_hint("SDL_RENDER_SCALE_QUALITY".ToC(), (if (on) { "0" } else { "1" }).ToC())
+}
+
+// The SDL version you are running against, for example "2.30.0".
+fn Version() -> String { String.FromCLossy(zsdl_version()) }
+
+// Size of display `index` (0 is the main one).
+fn DisplaySize(index: I32) -> Result<(I32, I32), Error> {
+    let w: I32 = zsdl_display_w(index.ToCInt()).ToI32()
+    if (w < 0) {
+        return Err(fail("SDL_GetDisplayBounds"))
+    }
+    Ok((w, zsdl_display_h(index.ToCInt()).ToI32()))
+}
+
+fn ClipboardText() -> String { String.FromCLossy(zsdl_clipboard_get()) }
+fn SetClipboardText(text: String) { zsdl_clipboard_set(text.ToC()) }
+
+// Text typing: while on, the pump reports TextInput events (IME and keyboard layouts handled by SDL).
+fn TextInput(on: Bool) { zsdl_text_input(if (on) { 1.ToCInt() } else { 0.ToCInt() }) }
+fn ModState() -> I32 { zsdl_mod_state().ToI32() }
+
+// A high-resolution clock: seconds since an arbitrary start.
+fn Seconds() -> F64 { zsdl_perf_counter().ToI64().ToF64() / zsdl_perf_freq().ToI64().ToF64() }
+
+// A simple dialog box. kind: 0 info, 1 warning, 2 error.
+fn MessageBox(kind: I32, title: String, message: String) {
+    zsdl_message_box(Null, kind.ToCInt(), title.ToC(), message.ToC())
+}
+
+// ---- time ----
+
+fn Ticks() -> I64 { zsdl_ticks().ToI64() }
+fn Delay(ms: I32) { zsdl_delay(ms.ToCInt()) }
+
+// ---- events ----
+
+enum Event {
+    Quit,
+    KeyDown(I32, I32), // key, modifier bits (see HasMod)
+    KeyUp(I32, I32),
+    TextInput(String), // after TextInput(true)
+    MouseMove(I32, I32),
+    MouseDown(I32, I32, I32), // button, x, y
+    MouseUp(I32, I32, I32),
+    Wheel(I32, I32), // dx, dy
+    Resized(I32, I32),
+    Focus(Bool),
+    PadDown(I32, I32), // controller id, button (see Sdl2.Gamepad)
+    PadUp(I32, I32),
+    PadAdded(I32), // device index
+    PadRemoved(I32), // controller id
+    Other(I32),
+}
+
+// Owns the buffer SDL writes events into. Call Close() when done (usually with defer).
+class EventPump {
+    e: *CVoid = Null
+
+    fn Init() { this.e = zsdl_event_new() }
+
+    fn Close() { zsdl_event_free(this.e) }
+
+    // The next pending event, or None when the queue is empty.
+    fn Poll() -> Option<Event> {
+        if (zsdl_poll(this.e).ToI32() == 0) {
+            return None
+        }
+        let e: *CVoid = this.e
+        let t: I32 = zsdl_ev_type(e).ToI32()
+        if (t == k(30)) { return Some(Event.Quit) }
+        if (t == k(31)) { return Some(Event.KeyDown(zsdl_ev_key(e).ToI32(), zsdl_ev_mod(e).ToI32())) }
+        if (t == k(32)) { return Some(Event.KeyUp(zsdl_ev_key(e).ToI32(), zsdl_ev_mod(e).ToI32())) }
+        if (t == k(70)) { return Some(Event.TextInput(String.FromCLossy(zsdl_ev_text(e)))) }
+        if (t == k(33)) { return Some(Event.MouseMove(zsdl_ev_mouse_x(e).ToI32(), zsdl_ev_mouse_y(e).ToI32())) }
+        if (t == k(34)) { return Some(Event.MouseDown(zsdl_ev_button(e).ToI32(), zsdl_ev_mouse_x(e).ToI32(), zsdl_ev_mouse_y(e).ToI32())) }
+        if (t == k(35)) { return Some(Event.MouseUp(zsdl_ev_button(e).ToI32(), zsdl_ev_mouse_x(e).ToI32(), zsdl_ev_mouse_y(e).ToI32())) }
+        if (t == k(36)) { return Some(Event.Wheel(zsdl_ev_wheel_x(e).ToI32(), zsdl_ev_wheel_y(e).ToI32())) }
+        if (t == k(37)) {
+            let we: I32 = zsdl_ev_window_event(e).ToI32()
+            if (we == k(40)) { return Some(Event.Resized(zsdl_ev_win_w(e).ToI32(), zsdl_ev_win_h(e).ToI32())) }
+            if (we == k(73)) { return Some(Event.Focus(true)) }
+            if (we == k(74)) { return Some(Event.Focus(false)) }
+        }
+        if (t == k(71)) { return Some(Event.PadDown(zsdl_ev_pad_which(e).ToI32(), zsdl_ev_pad_button(e).ToI32())) }
+        if (t == k(72)) { return Some(Event.PadUp(zsdl_ev_pad_which(e).ToI32(), zsdl_ev_pad_button(e).ToI32())) }
+        if (t == k(75)) { return Some(Event.PadAdded(zsdl_ev_pad_which(e).ToI32())) }
+        if (t == k(76)) { return Some(Event.PadRemoved(zsdl_ev_pad_which(e).ToI32())) }
+        Some(Event.Other(t))
+    }
+}
+
+// Queues a Quit event, so the main loop can end itself.
+fn RequestQuit() { zsdl_push_quit() }
+
+// ---- polled state ----
+
+fn KeyHeld(scancode: I32) -> Bool { zsdl_key_down(scancode.ToCInt()).ToI32() != 0 }
+fn MouseX() -> I32 { zsdl_mouse_x().ToI32() }
+fn MouseY() -> I32 { zsdl_mouse_y().ToI32() }
+
+// ---- window ----
+
+class Window {
+    p: *CVoid = Null
+
+    fn Init(p: *CVoid) { this.p = p }
+
+    static fn Open(title: String, w: I32, h: I32) -> Result<Window, Error> {
+        let c: I32 = k(50)
+        let p: *CVoid = zsdl_window_new(title.ToC(), c.ToCInt(), c.ToCInt(), w.ToCInt(), h.ToCInt(), k(10).ToCInt())
+        if (p == Null) {
+            return Err(fail("SDL_CreateWindow"))
+        }
+        Ok(Window.New(p))
+    }
+
+    fn Close() { zsdl_window_free(this.p) }
+    fn SetTitle(t: String) { zsdl_window_set_title(this.p, t.ToC()) }
+    fn Width() -> I32 { zsdl_window_w(this.p).ToI32() }
+    fn Height() -> I32 { zsdl_window_h(this.p).ToI32() }
+    fn SetSize(w: I32, h: I32) { zsdl_window_set_size(this.p, w.ToCInt(), h.ToCInt()) }
+    fn SetMinSize(w: I32, h: I32) { zsdl_window_min_size(this.p, w.ToCInt(), h.ToCInt()) }
+    fn SetPosition(x: I32, y: I32) { zsdl_window_set_pos(this.p, x.ToCInt(), y.ToCInt()) }
+    fn X() -> I32 { zsdl_window_x(this.p).ToI32() }
+    fn Y() -> I32 { zsdl_window_y(this.p).ToI32() }
+    fn SetResizable(on: Bool) { zsdl_window_resizable(this.p, if (on) { 1.ToCInt() } else { 0.ToCInt() }) }
+    fn Show() { zsdl_window_show(this.p, 1.ToCInt()) }
+    fn Hide() { zsdl_window_show(this.p, 0.ToCInt()) }
+    fn Raise() { zsdl_window_raise(this.p) }
+
+    // Borderless fullscreen at the desktop resolution (on) or back to a normal window (off).
+    fn SetFullscreen(on: Bool) -> Result<Unit, Error> {
+        let mode: I32 = if (on) { k(12) } else { 0 }
+        if (zsdl_window_fullscreen(this.p, mode.ToCInt()).ToI32() != 0) {
+            return Err(fail("SDL_SetWindowFullscreen"))
+        }
+        Ok(())
+    }
+
+    // A renderer for this window (vsync on).
+    fn Renderer() -> Result<Renderer, Error> {
+        let flags: I32 = k(20) | k(21)
+        mut p: *CVoid = zsdl_renderer_new(this.p, flags.ToCInt())
+        if (p == Null) {
+            // no GPU / vsync: fall back to the software renderer
+            p = zsdl_renderer_new(this.p, k(22).ToCInt())
+        }
+        if (p == Null) {
+            return Err(fail("SDL_CreateRenderer"))
+        }
+        Ok(Renderer.New(p))
+    }
+}
+
+// ---- renderer ----
+
+class Renderer {
+    p: *CVoid = Null
+
+    fn Init(p: *CVoid) { this.p = p }
+
+    fn Close() { zsdl_renderer_free(this.p) }
+
+    fn Color(r: I32, g: I32, b: I32, a: I32) {
+        zsdl_set_color(this.p, r.ToCInt(), g.ToCInt(), b.ToCInt(), a.ToCInt())
+    }
+
+    fn Clear() { zsdl_clear(this.p) }
+    fn Present() { zsdl_present(this.p) }
+    fn Point(x: I32, y: I32) { zsdl_draw_point(this.p, x.ToCInt(), y.ToCInt()) }
+
+    fn Line(x1: I32, y1: I32, x2: I32, y2: I32) {
+        zsdl_draw_line(this.p, x1.ToCInt(), y1.ToCInt(), x2.ToCInt(), y2.ToCInt())
+    }
+
+    fn Rect(x: I32, y: I32, w: I32, h: I32) {
+        zsdl_draw_rect(this.p, x.ToCInt(), y.ToCInt(), w.ToCInt(), h.ToCInt())
+    }
+
+    fn FillRect(x: I32, y: I32, w: I32, h: I32) {
+        zsdl_fill_rect(this.p, x.ToCInt(), y.ToCInt(), w.ToCInt(), h.ToCInt())
+    }
+
+    // Alpha blending for drawing: 0 none, 1 blend, 2 add, 3 multiply.
+    fn Blend(mode: I32) { zsdl_set_blend(this.p, mode.ToCInt()) }
+
+    // Draw in a w x h coordinate space that SDL scales (letterboxed) to the window.
+    fn SetLogicalSize(w: I32, h: I32) { zsdl_set_logical(this.p, w.ToCInt(), h.ToCInt()) }
+    fn SetClip(x: I32, y: I32, w: I32, h: I32) { zsdl_set_clip(this.p, x.ToCInt(), y.ToCInt(), w.ToCInt(), h.ToCInt()) }
+    fn ClearClip() { zsdl_clear_clip(this.p) }
+    fn OutputWidth() -> I32 { zsdl_output_w(this.p).ToI32() }
+    fn OutputHeight() -> I32 { zsdl_output_h(this.p).ToI32() }
+
+    // The pixels of the current target (0xAARRGGBB, row-major). Read before Present().
+    fn ReadPixels(x: I32, y: I32, w: I32, h: I32) -> Result<Array<U32>, Error> {
+        mut px: Array<U32> = []
+        mut i: I64 = 0
+        let n: I64 = w.ToI64() * h.ToI64()
+        while (i < n) {
+            px.Push(0_U32)
+            i += 1
+        }
+        if (zsdl_read_pixels(this.p, x.ToCInt(), y.ToCInt(), w.ToCInt(), h.ToCInt(), px.Ptr()).ToI32() != 0) {
+            return Err(fail("SDL_RenderReadPixels"))
+        }
+        Ok(px)
+    }
+
+    // A texture from 0xAARRGGBB pixels (alpha is honoured). pixels.Len() must be w * h.
+    fn TextureFromPixels(pixels: Array<U32>, w: I32, h: I32) -> Result<Texture, Error> {
+        if (pixels.Len() != w.ToI64() * h.ToI64()) {
+            return Err(Error.New(ErrorKind.Invalid, "TextureFromPixels: expected ${w * h} pixels, got ${pixels.Len()}"))
+        }
+        let t: *CVoid = zsdl_texture_from_pixels(this.p, pixels.Ptr(), w.ToCInt(), h.ToCInt())
+        if (t == Null) {
+            return Err(fail("SDL_CreateTextureFromSurface"))
+        }
+        Ok(Texture.New(this.p, t))
+    }
+
+    // A texture from a .bmp file.
+    fn LoadBmp(path: String) -> Result<Texture, Error> {
+        let t: *CVoid = zsdl_texture_from_bmp(this.p, path.ToC())
+        if (t == Null) {
+            return Err(fail("SDL_LoadBMP ${path}"))
+        }
+        Ok(Texture.New(this.p, t))
+    }
+
+    // A w x h framebuffer you fill with 0xAARRGGBB pixels.
+    fn Framebuffer(w: I32, h: I32) -> Result<Framebuffer, Error> {
+        let t: *CVoid = zsdl_texture_new(this.p, w.ToCInt(), h.ToCInt())
+        if (t == Null) {
+            return Err(fail("SDL_CreateTexture"))
+        }
+        Ok(Framebuffer.New(this.p, t, w))
+    }
+}
+
+class Framebuffer {
+    r: *CVoid
+    t: *CVoid
+    w: I32
+
+    fn Init(r: *CVoid, t: *CVoid, w: I32) {
+        this.r = r
+        this.t = t
+        this.w = w
+    }
+
+    fn Close() { zsdl_texture_free(this.t) }
+
+    // Uploads the pixels (row-major, w per row) and draws them over the whole target.
+    fn Draw(pixels: Array<U32>) {
+        zsdl_texture_update(this.t, pixels.Ptr(), (this.w * 4).ToCInt())
+        zsdl_texture_draw(this.r, this.t)
+    }
+}
+
+// A picture on the GPU (or the software renderer). Close it when done.
+class Texture {
+    r: *CVoid
+    t: *CVoid
+
+    fn Init(r: *CVoid, t: *CVoid) {
+        this.r = r
+        this.t = t
+    }
+
+    fn Close() { zsdl_texture_free(this.t) }
+    fn Width() -> I32 { zsdl_texture_w(this.t).ToI32() }
+    fn Height() -> I32 { zsdl_texture_h(this.t).ToI32() }
+
+    // Tint and opacity for later draws: 255,255,255,255 is "as is".
+    fn SetColor(r: I32, g: I32, b: I32, a: I32) {
+        zsdl_texture_color(this.t, r.ToCInt(), g.ToCInt(), b.ToCInt(), a.ToCInt())
+    }
+
+    // Draws the whole texture at its own size.
+    fn Draw(x: I32, y: I32) {
+        this.DrawScaled(x, y, this.Width(), this.Height())
+    }
+
+    fn DrawScaled(x: I32, y: I32, w: I32, h: I32) {
+        this.DrawEx(x, y, w, h, 0.0, 0)
+    }
+
+    // angle in degrees (clockwise); flip: 1 horizontal, 2 vertical, 3 both.
+    fn DrawEx(x: I32, y: I32, w: I32, h: I32, angle: F64, flip: I32) {
+        zsdl_texture_copy(this.r, this.t, 0.ToCInt(), 0.ToCInt(), 0.ToCInt(), 0.ToCInt(),
+            x.ToCInt(), y.ToCInt(), w.ToCInt(), h.ToCInt(), angle.ToCDouble(), flip.ToCInt())
+    }
+
+    // Draws the part sx,sy,sw,sh (a sprite sheet cell) to x,y,w,h.
+    fn DrawPart(sx: I32, sy: I32, sw: I32, sh: I32, x: I32, y: I32, w: I32, h: I32) {
+        zsdl_texture_copy(this.r, this.t, sx.ToCInt(), sy.ToCInt(), sw.ToCInt(), sh.ToCInt(),
+            x.ToCInt(), y.ToCInt(), w.ToCInt(), h.ToCInt(), 0.0.ToCDouble(), 0.ToCInt())
+    }
+}

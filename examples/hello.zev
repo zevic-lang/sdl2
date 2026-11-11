@@ -1,0 +1,38 @@
+module Main
+
+import Sdl2
+import Zevic.Console
+
+fn Main() {
+    Sdl2.Init().Unwrap()
+    defer Sdl2.Quit()
+
+    let win: Sdl2.Window = Sdl2.Window.Open("zevic + sdl2", 320, 200).Unwrap()
+    defer win.Close()
+    let ren: Sdl2.Renderer = win.Renderer().Unwrap()
+    defer ren.Close()
+    let pump: Sdl2.EventPump = Sdl2.EventPump.New()
+    defer pump.Close()
+
+    mut frames: I32 = 0
+    mut running: Bool = true
+    while (running && frames < 30) {
+        while (true) {
+            match (pump.Poll()) {
+                Some(ev) => match (ev) {
+                    Sdl2.Event.Quit => { running = false },
+                    _ => {},
+                },
+                None => break,
+            }
+        }
+        ren.Color(20, 24, 40, 255)
+        ren.Clear()
+        ren.Color(255, 200, 0, 255)
+        ren.FillRect(10 + frames * 5, 60, 60, 60)
+        ren.Present()
+        Sdl2.Delay(16)
+        frames += 1
+    }
+    Console.Println("frames: ${frames}")
+}

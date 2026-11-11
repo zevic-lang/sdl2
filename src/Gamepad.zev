@@ -1,0 +1,88 @@
+module Sdl2.Gamepad
+
+// Game controllers (Xbox / PlayStation / Switch style) through SDL's controller mapping.
+//
+//     import Sdl2.Gamepad as Gamepad
+//     Gamepad.Init().Unwrap()
+//     if (Gamepad.Count() > 0) {
+//         let pad: Gamepad.Pad = Gamepad.Pad.Open(0).Unwrap()
+//         if (pad.Button(Gamepad.ButtonA)) { ... }
+//     }
+
+extern "C" {
+    fn zsdl_init_sub(flags: CInt) -> CInt
+    fn zsdl_const(id: CInt) -> CInt
+    fn zsdl_error() -> CString
+    fn zsdl_pad_count() -> CInt
+    fn zsdl_pad_is_controller(idx: CInt) -> CInt
+    fn zsdl_pad_open(idx: CInt) -> *CVoid
+    fn zsdl_pad_close(p: *CVoid) -> CVoid
+    fn zsdl_pad_name(p: *CVoid) -> CString
+    fn zsdl_pad_button(p: *CVoid, b: CInt) -> CInt
+    fn zsdl_pad_axis(p: *CVoid, a: CInt) -> CInt
+    fn zsdl_pad_id(p: *CVoid) -> CInt
+}
+
+// Buttons (the same numbers appear in Sdl2.Event.PadDown / PadUp).
+let ButtonA: I32 = 0
+let ButtonB: I32 = 1
+let ButtonX: I32 = 2
+let ButtonY: I32 = 3
+let ButtonBack: I32 = 4
+let ButtonGuide: I32 = 5
+let ButtonStart: I32 = 6
+let ButtonLeftStick: I32 = 7
+let ButtonRightStick: I32 = 8
+let ButtonLeftShoulder: I32 = 9
+let ButtonRightShoulder: I32 = 10
+let ButtonUp: I32 = 11
+let ButtonDown: I32 = 12
+let ButtonLeft: I32 = 13
+let ButtonRight: I32 = 14
+
+// Axes: sticks go from -32768 to 32767; triggers from 0 to 32767.
+let AxisLeftX: I32 = 0
+let AxisLeftY: I32 = 1
+let AxisRightX: I32 = 2
+let AxisRightY: I32 = 3
+let AxisTriggerLeft: I32 = 4
+let AxisTriggerRight: I32 = 5
+
+fn Init() -> Result<Unit, Error> {
+    if (zsdl_init_sub(zsdl_const(61.ToCInt())).ToI32() != 0) {
+        return Err(Error.New(ErrorKind.Other, "SDL_InitSubSystem(gamecontroller): ${String.FromCLossy(zsdl_error())}"))
+    }
+    Ok(())
+}
+
+// How many joysticks are plugged in (some may not be game controllers: see IsPad).
+fn Count() -> I32 { zsdl_pad_count().ToI32() }
+fn IsPad(index: I32) -> Bool { zsdl_pad_is_controller(index.ToCInt()).ToI32() != 0 }
+
+// A stick value as -1.0 .. 1.0 with a dead zone (values closer to 0 than `dead` read as 0).
+fn Stick(raw: I32, dead: F64) -> F64 {
+    let v: F64 = raw.ToF64() / 32767.0
+    let a: F64 = if (v < 0.0) { 0.0 - v } else { v }
+    if (a < dead) { 0.0 } else if (v > 1.0) { 1.0 } else if (v < -1.0) { -1.0 } else { v }
+}
+
+class Pad {
+    p: *CVoid = Null
+
+    fn Init(p: *CVoid) { this.p = p }
+
+    static fn Open(index: I32) -> Result<Pad, Error> {
+        let p: *CVoid = zsdl_pad_open(index.ToCInt())
+        if (p == Null) {
+            return Err(Error.New(ErrorKind.NotFound, "SDL_GameControllerOpen(${index}): ${String.FromCLossy(zsdl_error())}"))
+        }
+        Ok(Pad.New(p))
+    }
+
+    fn Close() { zsdl_pad_close(this.p) }
+    fn Name() -> String { String.FromCLossy(zsdl_pad_name(this.p)) }
+    // The id that PadDown / PadUp / PadRemoved events carry.
+    fn Id() -> I32 { zsdl_pad_id(this.p).ToI32() }
+    fn Button(b: I32) -> Bool { zsdl_pad_button(this.p, b.ToCInt()).ToI32() != 0 }
+    fn Axis(a: I32) -> I32 { zsdl_pad_axis(this.p, a.ToCInt()).ToI32() }
+}

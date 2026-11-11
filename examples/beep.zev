@@ -1,0 +1,21 @@
+module Main
+
+import Sdl2
+import Sdl2.Audio as Audio
+import Zevic.Console
+
+// Plays A4, then E5, as plain sine waves.
+fn Main() {
+    Sdl2.Init().Unwrap()
+    defer Sdl2.Quit()
+    Audio.Init().Unwrap()
+    let dev: Audio.Device = Audio.Device.Open(44100, 1).Unwrap()
+    defer dev.Close()
+
+    dev.Queue(Audio.Sine(440.0, 0.4, 44100, 0.3)).Unwrap()
+    dev.Queue(Audio.Sine(659.25, 0.4, 44100, 0.3)).Unwrap()
+    while (dev.Queued() > 0) {
+        Sdl2.Delay(20)
+    }
+    Console.Println("done")
+}

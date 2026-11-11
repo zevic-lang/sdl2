@@ -1,0 +1,63 @@
+module Main
+
+import Sdl2
+import Zevic.Console
+
+// Arrow keys / WASD move a sprite made from pixels in code; Escape quits.
+fn Main() {
+    Sdl2.Init().Unwrap()
+    defer Sdl2.Quit()
+    let win: Sdl2.Window = Sdl2.Window.Open("sprites", 640, 360).Unwrap()
+    defer win.Close()
+    let ren: Sdl2.Renderer = win.Renderer().Unwrap()
+    defer ren.Close()
+    ren.SetLogicalSize(320, 180)
+    Sdl2.PixelArt(true)
+
+    // 8x8 smiley, 0xAARRGGBB
+    let y: U32 = 0xFFFFD700_U32
+    let k: U32 = 0xFF000000_U32
+    let o: U32 = 0x00000000_U32
+    let pixels: Array<U32> = [
+        o, o, y, y, y, y, o, o,
+        o, y, y, y, y, y, y, o,
+        y, y, k, y, y, k, y, y,
+        y, y, y, y, y, y, y, y,
+        y, k, y, y, y, y, k, y,
+        y, y, k, k, k, k, y, y,
+        o, y, y, y, y, y, y, o,
+        o, o, y, y, y, y, o, o,
+    ]
+    let sprite: Sdl2.Texture = ren.TextureFromPixels(pixels, 8, 8).Unwrap()
+    defer sprite.Close()
+    let pump: Sdl2.EventPump = Sdl2.EventPump.New()
+    defer pump.Close()
+
+    mut x: I32 = 150
+    mut yy: I32 = 80
+    mut angle: F64 = 0.0
+    mut running: Bool = true
+    while (running) {
+        while (true) {
+            match (pump.Poll()) {
+                Some(ev) => match (ev) {
+                    Sdl2.Event.Quit => { running = false },
+                    Sdl2.Event.KeyDown(key, _) => { if (key == Sdl2.KeyEscape) { running = false } },
+                    _ => {},
+                },
+                None => break,
+            }
+        }
+        if (Sdl2.KeyHeld(80) || Sdl2.KeyHeld(4)) { x -= 2 } // left arrow / A
+        if (Sdl2.KeyHeld(79) || Sdl2.KeyHeld(7)) { x += 2 } // right arrow / D
+        if (Sdl2.KeyHeld(82) || Sdl2.KeyHeld(26)) { yy -= 2 } // up arrow / W
+        if (Sdl2.KeyHeld(81) || Sdl2.KeyHeld(22)) { yy += 2 } // down arrow / S
+        angle += 3.0
+
+        ren.Color(16, 20, 36, 255)
+        ren.Clear()
+        sprite.DrawEx(x, yy, 32, 32, angle, 0)
+        ren.Present()
+    }
+    Console.Println("bye")
+}

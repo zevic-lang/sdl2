@@ -1,0 +1,42 @@
+module Main
+
+import Sdl2
+import Zevic.Console
+
+fn Main() {
+    Sdl2.Init().Unwrap()
+    defer Sdl2.Quit()
+    let win: Sdl2.Window = Sdl2.Window.Open("framebuffer", 256, 256).Unwrap()
+    defer win.Close()
+    let ren: Sdl2.Renderer = win.Renderer().Unwrap()
+    defer ren.Close()
+    let fb: Sdl2.Framebuffer = ren.Framebuffer(256, 256).Unwrap()
+    defer fb.Close()
+
+    mut px: Array<U32> = []
+    mut i: I64 = 0
+    while (i < 256 * 256) {
+        px.Push(0xFF000000_U32)
+        i += 1
+    }
+
+    mut frame: I32 = 0
+    while (frame < 20) {
+        mut y: I32 = 0
+        while (y < 256) {
+            mut x: I32 = 0
+            while (x < 256) {
+                let r: U32 = x.ToU32Wrap()
+                let g: U32 = y.ToU32Wrap()
+                let b: U32 = (frame * 12).ToU32Wrap() & 0xFF_U32
+                px[(y * 256 + x).ToI64()] = 0xFF000000_U32 | (r << 16) | (g << 8) | b
+                x += 1
+            }
+            y += 1
+        }
+        fb.Draw(px)
+        ren.Present()
+        frame += 1
+    }
+    Console.Println("drew ${frame} frames")
+}

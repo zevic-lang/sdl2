@@ -1,0 +1,165 @@
+module Sdl2Test
+
+import Sdl2
+import Sdl2.Audio as Audio
+import Sdl2.Gamepad as Gamepad
+import Zevic.Test
+
+// Every test runs with SDL's dummy drivers: no window, no sound, same result on every OS.
+
+fn setup() -> (Sdl2.Window, Sdl2.Renderer) {
+    Sdl2.Headless()
+    Sdl2.Init().Unwrap()
+    let win: Sdl2.Window = Sdl2.Window.Open("test", 64, 48).Unwrap()
+    let ren: Sdl2.Renderer = win.Renderer().Unwrap()
+    (win, ren)
+}
+
+fn teardown(win: Sdl2.Window, ren: Sdl2.Renderer) {
+    ren.Close()
+    win.Close()
+    Sdl2.Quit()
+}
+
+test "version is reported" {
+    Test.True(!Sdl2.Version().IsEmpty())
+}
+
+test "modifier bits" {
+    Test.True(Sdl2.HasMod(0x0001, Sdl2.ModShift))
+    Test.True(!Sdl2.HasMod(0x0001, Sdl2.ModCtrl))
+}
+
+test "fill and read back" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    ren.Color(255, 0, 0, 255)
+    ren.Clear()
+    ren.Color(0, 0, 255, 255)
+    ren.FillRect(10, 10, 4, 4)
+    let px: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(px.Len(), 64 * 48)
+    Test.Equal(px[0], 0xFFFF0000_U32)
+    Test.Equal(px[(11 * 64 + 11).ToI64()], 0xFF0000FF_U32)
+    Test.Equal(px[(20 * 64 + 20).ToI64()], 0xFFFF0000_U32)
+    teardown(win, ren)
+}
+
+test "line and point" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    ren.Color(0, 0, 0, 255)
+    ren.Clear()
+    ren.Color(0, 255, 0, 255)
+    ren.Line(0, 5, 63, 5)
+    ren.Point(30, 30)
+    let px: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(px[(5 * 64 + 40).ToI64()], 0xFF00FF00_U32)
+    Test.Equal(px[(30 * 64 + 30).ToI64()], 0xFF00FF00_U32)
+    Test.Equal(px[(6 * 64 + 40).ToI64()], 0xFF000000_U32)
+    teardown(win, ren)
+}
+
+test "framebuffer round trip" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    let fb: Sdl2.Framebuffer = ren.Framebuffer(64, 48).Unwrap()
+    mut src: Array<U32> = []
+    mut i: I64 = 0
+    while (i < 64 * 48) {
+        src.Push(0xFF000000_U32 | (i.ToU32Wrap() & 0xFFFFFF_U32))
+        i += 1
+    }
+    fb.Draw(src)
+    let out: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(out[0], src[0])
+    Test.Equal(out[1000], src[1000])
+    Test.Equal(out[64 * 48 - 1], src[64 * 48 - 1])
+    fb.Close()
+    teardown(win, ren)
+}
+
+test "texture from pixels draws and scales" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    Sdl2.PixelArt(true)
+    let tex: Sdl2.Texture = ren.TextureFromPixels([0xFFFF0000_U32, 0xFF00FF00_U32, 0xFF0000FF_U32, 0xFFFFFFFF_U32], 2, 2).Unwrap()
+    Test.Equal(tex.Width(), 2)
+    Test.Equal(tex.Height(), 2)
+    ren.Color(0, 0, 0, 255)
+    ren.Clear()
+    tex.DrawScaled(0, 0, 20, 20)
+    let px: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(px[(2 * 64 + 2).ToI64()], 0xFFFF0000_U32)
+    Test.Equal(px[(2 * 64 + 15).ToI64()], 0xFF00FF00_U32)
+    Test.Equal(px[(15 * 64 + 2).ToI64()], 0xFF0000FF_U32)
+    tex.Close()
+    teardown(win, ren)
+}
+
+test "texture size must match the pixel count" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    Test.Err<Sdl2.Texture, Error>(ren.TextureFromPixels([0xFFFFFFFF_U32], 2, 2))
+    teardown(win, ren)
+}
+
+test "missing bmp is an error" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    Test.Err<Sdl2.Texture, Error>(ren.LoadBmp("no/such/file.bmp"))
+    teardown(win, ren)
+}
+
+test "quit event comes through the pump" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    let pump: Sdl2.EventPump = Sdl2.EventPump.New()
+    Sdl2.RequestQuit()
+    mut got: Bool = false
+    mut n: I32 = 0
+    while (n < 100 && !got) {
+        match (pump.Poll()) {
+            Some(Sdl2.Event.Quit) => { got = true },
+            _ => {},
+        }
+        n += 1
+    }
+    Test.True(got)
+    pump.Close()
+    teardown(win, ren)
+}
+
+test "window size can change" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    Test.Equal(win.Width(), 64)
+    win.SetSize(80, 60)
+    Test.Equal(win.Width(), 80)
+    Test.Equal(win.Height(), 60)
+    teardown(win, ren)
+}
+
+test "clipboard round trip" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    Sdl2.SetClipboardText("zevic")
+    Test.Equal(Sdl2.ClipboardText(), "zevic")
+    teardown(win, ren)
+}
+
+test "audio queue accepts samples" {
+    Sdl2.Headless()
+    Sdl2.Init().Unwrap()
+    Audio.Init().Unwrap()
+    let dev: Audio.Device = Audio.Device.Open(44100, 1).Unwrap()
+    let wave: Array<I16> = Audio.Sine(440.0, 0.1, 44100, 0.5)
+    Test.Equal(wave.Len(), 4410)
+    dev.Queue(wave).Unwrap()
+    Test.True(dev.Queued() > 0)
+    dev.Clear()
+    dev.Close()
+    Sdl2.Quit()
+}
+
+test "gamepads: none attached means a clean error" {
+    Sdl2.Headless()
+    Sdl2.Init().Unwrap()
+    Gamepad.Init().Unwrap()
+    Test.Equal(Gamepad.Count(), 0)
+    Test.Err<Gamepad.Pad, Error>(Gamepad.Pad.Open(0))
+    Test.Equal(Gamepad.Stick(1000, 0.2), 0.0)
+    Test.Equal(Gamepad.Stick(32767, 0.2), 1.0)
+    Sdl2.Quit()
+}
