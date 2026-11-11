@@ -103,6 +103,10 @@ extern "C" {
     fn zsdl_clipboard_get() -> CString
     fn zsdl_clipboard_set(text: CString) -> CInt
 
+    fn zsdl_draw_text(r: *CVoid, x: CInt, y: CInt, text: CString, scale: CInt) -> CInt
+    fn zsdl_text_width(text: CString, scale: CInt) -> CInt
+    fn zsdl_text_height(text: CString, scale: CInt) -> CInt
+
     fn zsdl_perf_counter() -> CLongLong
     fn zsdl_perf_freq() -> CLongLong
     fn zsdl_message_box(win: *CVoid, kind: CInt, title: CString, msg: CString) -> CInt
@@ -183,6 +187,10 @@ fn SetClipboardText(text: String) { zsdl_clipboard_set(text.ToC()) }
 // Text typing: while on, the pump reports TextInput events (IME and keyboard layouts handled by SDL).
 fn TextInput(on: Bool) { zsdl_text_input(if (on) { 1.ToCInt() } else { 0.ToCInt() }) }
 fn ModState() -> I32 { zsdl_mod_state().ToI32() }
+
+// Size in pixels of `text` drawn by Renderer.Text at `scale` (8 pixels per character cell at scale 1).
+fn TextWidth(text: String, scale: I32) -> I32 { zsdl_text_width(text.ToC(), scale.ToCInt()).ToI32() }
+fn TextHeight(text: String, scale: I32) -> I32 { zsdl_text_height(text.ToC(), scale.ToCInt()).ToI32() }
 
 // A high-resolution clock: seconds since an arbitrary start.
 fn Seconds() -> F64 { zsdl_perf_counter().ToI64().ToF64() / zsdl_perf_freq().ToI64().ToF64() }
@@ -344,6 +352,12 @@ class Renderer {
 
     fn FillRect(x: I32, y: I32, w: I32, h: I32) {
         zsdl_fill_rect(this.p, x.ToCInt(), y.ToCInt(), w.ToCInt(), h.ToCInt())
+    }
+
+    // Draws text with the built-in 8x8 font (ASCII only) in the current colour. '\n' starts a new line.
+    // scale makes every font pixel scale x scale screen pixels. Other characters appear as '?'.
+    fn Text(x: I32, y: I32, text: String, scale: I32) {
+        zsdl_draw_text(this.p, x.ToCInt(), y.ToCInt(), text.ToC(), scale.ToCInt())
     }
 
     // Alpha blending for drawing: 0 none, 1 blend, 2 add, 3 multiply.
