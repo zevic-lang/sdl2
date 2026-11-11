@@ -79,14 +79,32 @@ Close what you open with `defer x.Close()`; there are no finalizers.
 
 **Sdl2.Gamepad**: `Init`, `Count`, `IsPad`, `Pad.Open(index)`, `Button`, `Axis`, `Name`, `Id`, `Close`, `Stick(raw, dead)`; constants `Button*`, `Axis*`
 
-## Tests and examples
+## Examples
+
+Every example in `examples/` is its own zevpm package that depends on this one by path:
+
+| Example | Shows |
+| --- | --- |
+| `hello` | window, renderer, event loop |
+| `framebuffer` | writing pixels from code |
+| `sprites` | textures, rotation, keyboard state, logical size |
+| `text` | the built-in bitmap font |
+| `events` | every event type, text input |
+| `gamepad` | controllers |
+| `beep` | audio queue |
 
 ```
-SDL_VIDEODRIVER=dummy zevpm test          # tests call Sdl2.Headless() themselves
-zevic src/*.zev examples/sprites.zev native/zsdl.c -lSDL2 -o sprites
+cd examples/sprites
+zevpm run
 ```
 
-`Sdl2.Headless()` switches SDL to its dummy video and audio drivers, so tests and CI need no display or sound card.
+## Tests
+
+```
+zevpm test
+```
+
+The tests call `Sdl2.Headless()`, which switches SDL to its dummy video and audio drivers, so they need no display or sound card.
 
 ## Design notes
 
