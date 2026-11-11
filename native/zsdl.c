@@ -7,6 +7,7 @@
 #include <SDL.h>
 #endif
 #include <stdlib.h>
+#include "font8x8.h"
 
 // ---- lifecycle ----
 int zsdl_init(int flags) { return SDL_Init((Uint32)flags); }
@@ -270,4 +271,52 @@ long long zsdl_perf_freq(void) { return (long long)SDL_GetPerformanceFrequency()
 int zsdl_message_box(void *win, int kind, const char *title, const char *msg) {
     Uint32 flags = kind == 2 ? SDL_MESSAGEBOX_ERROR : kind == 1 ? SDL_MESSAGEBOX_WARNING : SDL_MESSAGEBOX_INFORMATION;
     return SDL_ShowSimpleMessageBox(flags, title, msg, (SDL_Window *)win);
+}
+
+// ---- bitmap text (8x8 font, ASCII) ----
+// Draws `text` in the current draw colour. Each glyph cell is 8*scale pixels; '\n' starts a new line.
+// Bytes outside ASCII draw as '?' (one per UTF-8 character).
+static int text_glyph(int c) {
+    if (c < 32 || c > 126) return '?';
+    return c;
+}
+int zsdl_draw_text(void *r, int x, int y, const char *text, int scale) {
+    if (scale < 1) scale = 1;
+    int cx = x, cy = y;
+    for (const unsigned char *p = (const unsigned char *)text; *p; p++) {
+        if (*p == '\n') { cx = x; cy += 8 * scale; continue; }
+        if (*p >= 0x80 && *p < 0xC0) continue;       /* UTF-8 continuation byte */
+        const unsigned char *g = font8x8_basic[text_glyph(*p)];
+        for (int row = 0; row < 8; row++) {
+            int bits = g[row];
+            int col = 0;
+            while (col < 8) {
+                if (!(bits & (1 << col))) { col++; continue; }
+                int start = col;
+                while (col < 8 && (bits & (1 << col))) col++;
+                SDL_Rect rc = {cx + start * scale, cy + row * scale, (col - start) * scale, scale};
+                if (SDL_RenderFillRect((SDL_Renderer *)r, &rc) != 0) return -1;
+            }
+        }
+        cx += 8 * scale;
+    }
+    return 0;
+}
+// Width in pixels of the widest line, and the height of all lines, for the same rules as above.
+int zsdl_text_width(const char *text, int scale) {
+    if (scale < 1) scale = 1;
+    int best = 0, cur = 0;
+    for (const unsigned char *p = (const unsigned char *)text; *p; p++) {
+        if (*p == '\n') { cur = 0; continue; }
+        if (*p >= 0x80 && *p < 0xC0) continue;
+        cur += 8 * scale;
+        if (cur > best) best = cur;
+    }
+    return best;
+}
+int zsdl_text_height(const char *text, int scale) {
+    if (scale < 1) scale = 1;
+    int lines = 1;
+    for (const unsigned char *p = (const unsigned char *)text; *p; p++) if (*p == '\n') lines++;
+    return lines * 8 * scale;
 }
