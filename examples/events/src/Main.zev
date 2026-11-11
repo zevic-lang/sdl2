@@ -1,0 +1,59 @@
+module Main
+
+import Sdl2
+import Zevic.Console
+
+// Prints every event it receives. Type, click, scroll, resize, switch focus. Escape quits.
+fn Main() {
+    Sdl2.Init().Unwrap()
+    defer Sdl2.Quit()
+    let win: Sdl2.Window = Sdl2.Window.Open("events", 480, 270).Unwrap()
+    defer win.Close()
+    win.SetResizable(true)
+    let ren: Sdl2.Renderer = win.Renderer().Unwrap()
+    defer ren.Close()
+    let pump: Sdl2.EventPump = Sdl2.EventPump.New()
+    defer pump.Close()
+    Sdl2.TextInput(true)
+
+    mut last: String = "move the mouse, press keys, type text"
+    mut running: Bool = true
+    while (running) {
+        while (true) {
+            match (pump.Poll()) {
+                Some(ev) => {
+                    match (ev) {
+                        Sdl2.Event.Quit => { running = false },
+                        Sdl2.Event.KeyDown(key, mods) => {
+                            last = "key down ${key} mods ${mods}"
+                            Console.Println(last)
+                            if (key == Sdl2.KeyEscape) { running = false }
+                        },
+                        Sdl2.Event.KeyUp(key, _) => { Console.Println("key up ${key}") },
+                        Sdl2.Event.TextInput(t) => { Console.Println("text \"${t}\"") },
+                        Sdl2.Event.MouseDown(b, x, y) => {
+                            last = "mouse button ${b} at ${x},${y}"
+                            Console.Println(last)
+                        },
+                        Sdl2.Event.MouseUp(b, x, y) => { Console.Println("mouse button ${b} released at ${x},${y}") },
+                        Sdl2.Event.Wheel(dx, dy) => { Console.Println("wheel ${dx},${dy}") },
+                        Sdl2.Event.Resized(w, h) => { Console.Println("resized to ${w}x${h}") },
+                        Sdl2.Event.Focus(on) => { Console.Println("focus ${on}") },
+                        _ => {},
+                    }
+                },
+                None => break,
+            }
+        }
+        ren.Color(18, 22, 38, 255)
+        ren.Clear()
+        ren.Color(255, 255, 255, 255)
+        ren.Text(16, 16, "events (see the console)", 2)
+        ren.Color(255, 200, 0, 255)
+        ren.Text(16, 60, last, 1)
+        ren.Color(120, 200, 255, 255)
+        ren.Text(16, 90, "mouse: ${Sdl2.MouseX()}, ${Sdl2.MouseY()}", 1)
+        ren.Present()
+        Sdl2.Delay(10)
+    }
+}
