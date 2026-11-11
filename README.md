@@ -111,7 +111,7 @@ The tests call `Sdl2.Headless()`, which switches SDL to its dummy video and audi
 - `SDL_Event` is a union and Zevic has no unions, so events live in an opaque buffer read through accessor functions in the shim.
 - SDL constants are read from the real headers through `zsdl_const`, never copied.
 - Audio uses SDL's queue API instead of callbacks (Zevic passes only non-capturing `fn`).
-- `Renderer.Text` uses a built-in 8x8 font (ASCII only), so text needs no SDL_ttf and no font files. Use SDL_ttf-style bindings later for other scripts.
+- `Renderer.Text` uses a built-in 8x8 font (ASCII only), so text needs no SDL_ttf and no font files. Non-ASCII characters draw as `?`.
 - Not covered yet: SDL_image / SDL_ttf / SDL_mixer, joysticks that are not game controllers, haptics, window icons.
 
 ## License
