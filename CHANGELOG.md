@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0
+
+- `Renderer.Text`, `Sdl2.TextWidth`, `Sdl2.TextHeight`: built-in 8x8 bitmap font (ASCII), no SDL_ttf needed
+- Every example is now its own zevpm package under `examples/` (hello, framebuffer, sprites, beep, plus new text, events, gamepad)
+- CI for Linux and macOS
+- 3 new tests (16 in total)
+
 ## 0.1.0
 
 First release.
