@@ -1,0 +1,86 @@
+module Main
+
+import Sdl2
+import Sdl2.Gamepad as Gamepad
+
+// Shows the first game controller: name, buttons and sticks. Plug one in while it runs. Escape quits.
+fn Main() {
+    Sdl2.Init().Unwrap()
+    defer Sdl2.Quit()
+    Gamepad.Init().Unwrap()
+    let win: Sdl2.Window = Sdl2.Window.Open("gamepad", 480, 270).Unwrap()
+    defer win.Close()
+    let ren: Sdl2.Renderer = win.Renderer().Unwrap()
+    defer ren.Close()
+    let pump: Sdl2.EventPump = Sdl2.EventPump.New()
+    defer pump.Close()
+
+    mut pad: Option<Gamepad.Pad> = None
+    mut index: I32 = 0
+    while (index < Gamepad.Count() && pad.IsNone()) {
+        if (Gamepad.IsPad(index)) {
+            pad = Some(Gamepad.Pad.Open(index).Unwrap())
+        }
+        index += 1
+    }
+
+    let names: Array<String> = ["A", "B", "X", "Y", "Back", "Guide", "Start", "LS", "RS", "LB", "RB", "Up", "Down", "Left", "Right"]
+    mut running: Bool = true
+    while (running) {
+        while (true) {
+            match (pump.Poll()) {
+                Some(ev) => match (ev) {
+                    Sdl2.Event.Quit => { running = false },
+                    Sdl2.Event.KeyDown(key, _) => { if (key == Sdl2.KeyEscape) { running = false } },
+                    Sdl2.Event.PadAdded(i) => {
+                        if (pad.IsNone()) {
+                            match (Gamepad.Pad.Open(i)) {
+                                Ok(p) => { pad = Some(p) },
+                                Err(_) => {},
+                            }
+                        }
+                    },
+                    Sdl2.Event.PadRemoved(_) => {
+                        match (pad) {
+                            Some(p) => { p.Close() },
+                            None => {},
+                        }
+                        pad = None
+                    },
+                    _ => {},
+                },
+                None => break,
+            }
+        }
+
+        ren.Color(18, 22, 38, 255)
+        ren.Clear()
+        ren.Color(255, 255, 255, 255)
+        match (pad) {
+            None => {
+                ren.Text(16, 16, "no controller: plug one in", 2)
+            },
+            Some(p) => {
+                ren.Text(16, 16, p.Name(), 2)
+                mut i: I32 = 0
+                while (i < names.Len().ToI32Wrap()) {
+                    let down: Bool = p.Button(i)
+                    ren.Color(if (down) { 255 } else { 70 }, if (down) { 200 } else { 70 }, if (down) { 0 } else { 90 }, 255)
+                    ren.Text(16 + (i % 5) * 88, 60 + (i / 5) * 24, names[i.ToI64()], 1)
+                    i += 1
+                }
+                ren.Color(120, 200, 255, 255)
+                let lx: F64 = Gamepad.Stick(p.Axis(Gamepad.AxisLeftX), 0.15)
+                let ly: F64 = Gamepad.Stick(p.Axis(Gamepad.AxisLeftY), 0.15)
+                ren.Rect(60, 150, 80, 80)
+                ren.FillRect(96 + (lx * 32.0).ToI32(), 186 + (ly * 32.0).ToI32(), 8, 8)
+            },
+        }
+        ren.Present()
+        Sdl2.Delay(10)
+    }
+    match (pad) {
+        Some(p) => { p.Close() },
+        None => {},
+    }
+}
