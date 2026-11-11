@@ -1,11 +1,7 @@
 // Thin C shim between Zevic and SDL2.
 // Zevic passes only C scalars and opaque pointers; everything with a union,
 // a by-value struct or a pointer-to-scalar lives here.
-#if __has_include(<SDL2/SDL.h>)
-#include <SDL2/SDL.h>
-#else
-#include <SDL.h>
-#endif
+#include "zsdl_sdl.h"
 #include <stdlib.h>
 #include "font8x8.h"
 
