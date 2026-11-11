@@ -65,11 +65,12 @@ Close what you open with `defer x.Close()`; there are no finalizers.
 
 **Sdl2**
 - Lifecycle and info: `Init`, `Quit`, `Headless`, `PixelArt`, `Version`, `DisplaySize`
+- Text size: `TextWidth`, `TextHeight` (for the built-in 8x8 font used by `Renderer.Text`)
 - Time: `Ticks`, `Seconds`, `Delay`
 - Input state: `KeyHeld(scancode)`, `MouseX`, `MouseY`, `ModState`, `HasMod`, `TextInput(on)`; constants `Key*`, `Mod*`, `Button*`
 - Other: `ClipboardText`, `SetClipboardText`, `MessageBox`, `RequestQuit`
 - `Window.Open(title, w, h)`: `Close`, `SetTitle`, `Width`, `Height`, `SetSize`, `SetMinSize`, `SetPosition`, `X`, `Y`, `SetResizable`, `SetFullscreen`, `Show`, `Hide`, `Raise`, `Renderer()`
-- `Renderer`: `Color`, `Clear`, `Present`, `Point`, `Line`, `Rect`, `FillRect`, `Blend`, `SetLogicalSize`, `SetClip`, `ClearClip`, `OutputWidth`, `OutputHeight`, `ReadPixels`, `TextureFromPixels`, `LoadBmp`, `Framebuffer`
+- `Renderer`: `Color`, `Clear`, `Present`, `Point`, `Line`, `Rect`, `FillRect`, `Text`, `Blend`, `SetLogicalSize`, `SetClip`, `ClearClip`, `OutputWidth`, `OutputHeight`, `ReadPixels`, `TextureFromPixels`, `LoadBmp`, `Framebuffer`
 - `Texture`: `Width`, `Height`, `SetColor`, `Draw`, `DrawScaled`, `DrawEx(angle, flip)`, `DrawPart`
 - `Framebuffer.Draw(Array<U32>)` with 0xAARRGGBB pixels
 - `EventPump.Poll()` gives `Option<Event>`: `Quit`, `KeyDown(key, mods)`, `KeyUp`, `TextInput(text)`, `MouseMove`, `MouseDown(button, x, y)`, `MouseUp`, `Wheel(dx, dy)`, `Resized(w, h)`, `Focus(on)`, `PadDown(id, button)`, `PadUp`, `PadAdded`, `PadRemoved`, `Other(type)`
@@ -92,6 +93,7 @@ zevic src/*.zev examples/sprites.zev native/zsdl.c -lSDL2 -o sprites
 - `SDL_Event` is a union and Zevic has no unions, so events live in an opaque buffer read through accessor functions in the shim.
 - SDL constants are read from the real headers through `zsdl_const`, never copied.
 - Audio uses SDL's queue API instead of callbacks (Zevic passes only non-capturing `fn`).
+- `Renderer.Text` uses a built-in 8x8 font (ASCII only), so text needs no SDL_ttf and no font files. Use SDL_ttf-style bindings later for other scripts.
 - Not covered yet: SDL_image / SDL_ttf / SDL_mixer, joysticks that are not game controllers, haptics, window icons.
 
 Apache-2.0.
