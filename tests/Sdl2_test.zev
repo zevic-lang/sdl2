@@ -163,3 +163,42 @@ test "gamepads: none attached means a clean error" {
     Test.Equal(Gamepad.Stick(32767, 0.2), 1.0)
     Sdl2.Quit()
 }
+
+test "text size follows scale, newlines and UTF-8" {
+    Test.Equal(Sdl2.TextWidth("abc", 1), 24)
+    Test.Equal(Sdl2.TextWidth("abc", 2), 48)
+    Test.Equal(Sdl2.TextWidth("ab\nc", 1), 16)
+    Test.Equal(Sdl2.TextHeight("ab\nc", 1), 16)
+    Test.Equal(Sdl2.TextWidth("é", 1), 8)
+    Test.Equal(Sdl2.TextWidth("", 1), 0)
+}
+
+test "text draws the font glyphs" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    ren.Color(0, 0, 0, 255)
+    ren.Clear()
+    ren.Color(255, 255, 255, 255)
+    // the top row of 'A' has pixels in columns 2 and 3 only
+    ren.Text(0, 0, "A", 1)
+    let px: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(px[0], 0xFF000000_U32)
+    Test.Equal(px[2], 0xFFFFFFFF_U32)
+    Test.Equal(px[3], 0xFFFFFFFF_U32)
+    Test.Equal(px[4], 0xFF000000_U32)
+    teardown(win, ren)
+}
+
+test "text scales and starts new lines" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    ren.Color(0, 0, 0, 255)
+    ren.Clear()
+    ren.Color(255, 255, 255, 255)
+    ren.Text(0, 0, "\nA", 2)
+    let px: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    // second line starts 16 pixels down; column 2 at scale 2 covers x 4..5, the first row covers y 16..17
+    Test.Equal(px[(16 * 64 + 3).ToI64()], 0xFF000000_U32)
+    Test.Equal(px[(16 * 64 + 4).ToI64()], 0xFFFFFFFF_U32)
+    Test.Equal(px[(17 * 64 + 5).ToI64()], 0xFFFFFFFF_U32)
+    Test.Equal(px[(16 * 64 + 8).ToI64()], 0xFF000000_U32)
+    teardown(win, ren)
+}
