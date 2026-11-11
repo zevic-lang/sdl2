@@ -114,4 +114,6 @@ The tests call `Sdl2.Headless()`, which switches SDL to its dummy video and audi
 - `Renderer.Text` uses a built-in 8x8 font (ASCII only), so text needs no SDL_ttf and no font files. Use SDL_ttf-style bindings later for other scripts.
 - Not covered yet: SDL_image / SDL_ttf / SDL_mixer, joysticks that are not game controllers, haptics, window icons.
 
-Apache-2.0.
+## License
+
+Apache-2.0. `native/font8x8.h` is the public-domain font8x8 table by Daniel Hepper (based on IBM VGA fonts).
