@@ -1,0 +1,46 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SDL2 (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libsdl2-dev clang
+
+      - name: Install SDL2 (macOS)
+        if: runner.os == 'macOS'
+        run: brew install sdl2
+
+      - name: Build the Zevic toolchain
+        run: |
+          git clone --depth 1 https://github.com/zevic-lang/zevic.git "$RUNNER_TEMP/zevic"
+          make -C "$RUNNER_TEMP/zevic"
+          echo "$RUNNER_TEMP/zevic/build" >> "$GITHUB_PATH"
+          echo "ZEVIC_HOME=$RUNNER_TEMP/zevic" >> "$GITHUB_ENV"
+
+      - name: Check formatting
+        run: zevfmt -check .
+
+      - name: Test
+        run: zevpm2 test
+
+      - name: Build the examples
+        run: |
+          for d in examples/*/; do
+            echo "== $d"
+            (cd "$d" && zevpm2 build)
+          done
