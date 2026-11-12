@@ -1,0 +1,57 @@
+module Main
+
+import Sdl2
+import Sdl2.Image as Image
+import Zevic.Console
+
+// Loads assets/orb.png (a PNG with soft alpha edges) and spins copies of it. Run from this folder. Escape quits.
+fn Main() {
+    Sdl2.Init().Unwrap()
+    defer Sdl2.Quit()
+    match (Image.Init()) {
+        Ok(_) => {},
+        Err(e) => {
+            Console.Println("${e.Message()}")
+            return
+        },
+    }
+    defer Image.Quit()
+
+    let win: Sdl2.Window = Sdl2.Window.Open("image", 640, 360).Unwrap()
+    defer win.Close()
+    let ren: Sdl2.Renderer = win.Renderer().Unwrap()
+    defer ren.Close()
+    let orb: Sdl2.Texture = ren.LoadImage("assets/orb.png").Unwrap()
+    defer orb.Close()
+    let pump: Sdl2.EventPump = Sdl2.EventPump.New()
+    defer pump.Close()
+
+    Console.Println("SDL2_image ${Image.Version()}, PNG: ${Image.Supports(Image.PNG)}")
+    mut angle: F64 = 0.0
+    mut running: Bool = true
+    while (running) {
+        while (true) {
+            match (pump.Poll()) {
+                Some(ev) => match (ev) {
+                    Sdl2.Event.Quit => { running = false },
+                    Sdl2.Event.KeyDown(key, _) => { if (key == Sdl2.KeyEscape) { running = false } },
+                    _ => {},
+                },
+                None => break,
+            }
+        }
+        angle += 2.0
+        ren.Color(30, 36, 60, 255)
+        ren.Clear()
+        mut i: I32 = 0
+        while (i < 5) {
+            orb.SetColor(255, 255 - i * 40, 255, 255 - i * 30)
+            orb.DrawEx(60 + i * 110, 120, 96, 96, angle * (1.0 + i.ToF64() * 0.3), if (i % 2 == 1) { 1 } else { 0 })
+            i += 1
+        }
+        ren.Color(255, 255, 255, 255)
+        ren.Text(16, 330, "alpha, tint, rotation and flip from one PNG", 1)
+        ren.Present()
+        Sdl2.Delay(8)
+    }
+}
