@@ -1,0 +1,162 @@
+module Sdl2.Mixer
+
+// Sound effects and music through SDL2_mixer: WAV and, depending on the installed build, OGG, MP3 and FLAC.
+//
+// SDL2_mixer is loaded when you call Init(), not when your program is linked, so programs that
+// never import this module do not need it installed (libsdl2-mixer-dev, `brew install sdl2_mixer`,
+// or SDL2_mixer.dll next to the program). Set ZEVIC_SDL2_MIXER to a library path to override the search.
+//
+//     import Sdl2.Mixer as Mixer
+//
+//     Mixer.Init().Unwrap()
+//     defer Mixer.Quit()
+//     let hit: Mixer.Sound = Mixer.Sound.Load("hit.wav").Unwrap()
+//     defer hit.Close()
+//     hit.Play().Unwrap()
+
+extern "C" {
+    fn zsdl_error() -> CString
+    fn zsdl_mix_open(path: CString, freq: CInt, channels: CInt, chunk: CInt) -> CInt
+    fn zsdl_mix_close() -> CVoid
+    fn zsdl_mix_loaded() -> CInt
+    fn zsdl_mix_version() -> CString
+
+    fn zsdl_mix_load_sound(path: CString) -> *CVoid
+    fn zsdl_mix_load_music(path: CString) -> *CVoid
+    fn zsdl_mix_free_sound(s: *CVoid) -> CVoid
+    fn zsdl_mix_free_music(m: *CVoid) -> CVoid
+    fn zsdl_mix_play_sound(s: *CVoid, channel: CInt, loops: CInt) -> CInt
+    fn zsdl_mix_sound_volume(s: *CVoid, v: CInt) -> CInt
+    fn zsdl_mix_channel_volume(ch: CInt, v: CInt) -> CInt
+    fn zsdl_mix_channel_playing(ch: CInt) -> CInt
+    fn zsdl_mix_halt_channel(ch: CInt) -> CInt
+    fn zsdl_mix_channels(n: CInt) -> CInt
+
+    fn zsdl_mix_play_music(m: *CVoid, loops: CInt) -> CInt
+    fn zsdl_mix_pause_music() -> CVoid
+    fn zsdl_mix_resume_music() -> CVoid
+    fn zsdl_mix_halt_music() -> CInt
+    fn zsdl_mix_music_volume(v: CInt) -> CInt
+    fn zsdl_mix_music_playing() -> CInt
+    fn zsdl_mix_music_paused() -> CInt
+}
+
+// Volumes run from 0 (silent) to MaxVolume.
+let MaxVolume: I32 = 128
+
+// Pass AllChannels to Volume, Halt and Playing to mean every channel.
+let AllChannels: I32 = -1
+
+fn fail(what: String) -> Error {
+    Error.New(ErrorKind.Other, "${what}: ${String.FromCLossy(zsdl_error())}")
+}
+
+fn open(path: String, rate: I32, channels: I32, buffer: I32) -> Result<Unit, Error> {
+    if (zsdl_mix_open(path.ToC(), rate.ToCInt(), channels.ToCInt(), buffer.ToCInt()).ToI32() != 0) {
+        return Err(Error.New(ErrorKind.NotFound, "SDL2_mixer: ${String.FromCLossy(zsdl_error())}"))
+    }
+    Ok(())
+}
+
+// Finds SDL2_mixer in the usual places for this OS and opens the audio device (44100 Hz, stereo).
+fn Init() -> Result<Unit, Error> { open("", 44100, 2, 2048) }
+
+// The same with your own sample rate, channel count (1 or 2) and buffer size in samples.
+fn InitWith(rate: I32, channels: I32, buffer: I32) -> Result<Unit, Error> { open("", rate, channels, buffer) }
+
+// Loads SDL2_mixer from an explicit file path.
+fn InitFrom(path: String) -> Result<Unit, Error> { open(path, 44100, 2, 2048) }
+
+// Closes the audio device and unloads SDL2_mixer. Close your sounds and music first.
+fn Quit() { zsdl_mix_close() }
+
+fn IsLoaded() -> Bool { zsdl_mix_loaded().ToI32() != 0 }
+
+// The SDL2_mixer version, for example "2.8.0" (empty before Init).
+fn Version() -> String { String.FromCLossy(zsdl_mix_version()) }
+
+// How many sounds can play at once (default 8). Returns the new count.
+fn SetChannels(n: I32) -> I32 { zsdl_mix_channels(n.ToCInt()).ToI32() }
+
+// Sets one channel's volume (0 to MaxVolume), or all of them with AllChannels.
+fn Volume(channel: I32, volume: I32) { zsdl_mix_channel_volume(channel.ToCInt(), volume.ToCInt()) }
+
+// Whether the channel is playing; with AllChannels, whether any is.
+fn Playing(channel: I32) -> Bool { zsdl_mix_channel_playing(channel.ToCInt()).ToI32() != 0 }
+
+// Stops one channel, or all of them with AllChannels.
+fn Halt(channel: I32) { zsdl_mix_halt_channel(channel.ToCInt()) }
+
+// ---- music: one stream at a time ----
+
+fn MusicVolume(volume: I32) { zsdl_mix_music_volume(volume.ToCInt()) }
+fn MusicPlaying() -> Bool { zsdl_mix_music_playing().ToI32() != 0 }
+fn MusicPaused() -> Bool { zsdl_mix_music_paused().ToI32() != 0 }
+fn PauseMusic() { zsdl_mix_pause_music() }
+fn ResumeMusic() { zsdl_mix_resume_music() }
+fn StopMusic() { zsdl_mix_halt_music() }
+
+// A short sound effect, fully decoded in memory.
+class Sound {
+    p: *CVoid = Null
+
+    fn Init(p: *CVoid) { this.p = p }
+
+    static fn Load(path: String) -> Result<Sound, Error> {
+        let p: *CVoid = zsdl_mix_load_sound(path.ToC())
+        if (p == Null) {
+            return Err(fail("load sound ${path}"))
+        }
+        Ok(Sound.New(p))
+    }
+
+    fn Close() { zsdl_mix_free_sound(this.p) }
+
+    // Volume for this sound on every channel (0 to MaxVolume).
+    fn SetVolume(volume: I32) { zsdl_mix_sound_volume(this.p, volume.ToCInt()) }
+
+    // Plays once on a free channel and returns the channel.
+    fn Play() -> Result<I32, Error> { this.PlayRepeat(0) }
+
+    // Plays once, then `extra` more times.
+    fn PlayRepeat(extra: I32) -> Result<I32, Error> {
+        let ch: I32 = zsdl_mix_play_sound(this.p, AllChannels.ToCInt(), extra.ToCInt()).ToI32()
+        if (ch < 0) {
+            return Err(fail("play sound"))
+        }
+        Ok(ch)
+    }
+
+    // Plays until you Halt the channel.
+    fn Loop() -> Result<I32, Error> { this.PlayRepeat(-1) }
+}
+
+// A longer track, streamed from the file while it plays.
+class Music {
+    p: *CVoid = Null
+
+    fn Init(p: *CVoid) { this.p = p }
+
+    static fn Load(path: String) -> Result<Music, Error> {
+        let p: *CVoid = zsdl_mix_load_music(path.ToC())
+        if (p == Null) {
+            return Err(fail("load music ${path}"))
+        }
+        Ok(Music.New(p))
+    }
+
+    fn Close() { zsdl_mix_free_music(this.p) }
+
+    fn Play() -> Result<Unit, Error> { this.PlayTimes(1) }
+
+    // Plays the track `times` times in a row.
+    fn PlayTimes(times: I32) -> Result<Unit, Error> {
+        if (zsdl_mix_play_music(this.p, times.ToCInt()).ToI32() != 0) {
+            return Err(fail("play music"))
+        }
+        Ok(())
+    }
+
+    // Plays until you call StopMusic.
+    fn Loop() -> Result<Unit, Error> { this.PlayTimes(-1) }
+}
