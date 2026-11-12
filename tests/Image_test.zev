@@ -1,0 +1,88 @@
+module Sdl2ImageTest
+
+import Sdl2
+import Sdl2.Image as Image
+import Zevic.Test
+
+fn setup() -> (Sdl2.Window, Sdl2.Renderer) {
+    Sdl2.Headless()
+    Sdl2.Init().Unwrap()
+    let win: Sdl2.Window = Sdl2.Window.Open("test", 64, 48).Unwrap()
+    let ren: Sdl2.Renderer = win.Renderer().Unwrap()
+    (win, ren)
+}
+
+fn teardown(win: Sdl2.Window, ren: Sdl2.Renderer) {
+    ren.Close()
+    win.Close()
+    Sdl2.Quit()
+}
+
+fn channel(px: U32, shift: I32) -> U32 { (px >> shift) & 0xFF_U32 }
+
+test "images need Init first" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    Test.True(!Image.IsLoaded())
+    Test.Err<Sdl2.Texture, Error>(ren.LoadImage("tests/data/four.png"))
+    teardown(win, ren)
+}
+
+test "an explicit missing library path is an error" {
+    Test.Err<Unit, Error>(Image.InitFrom("/no/such/libSDL2_image.so"))
+    Test.True(!Image.IsLoaded())
+}
+
+test "init reports version and decoders" {
+    Image.Init().Unwrap()
+    Test.True(Image.IsLoaded())
+    Test.True(!Image.Version().IsEmpty())
+    Test.True(Image.Supports(Image.PNG))
+    Image.Quit()
+    Test.True(!Image.IsLoaded())
+}
+
+test "png loads with its alpha" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    Image.Init().Unwrap()
+    let tex: Sdl2.Texture = ren.LoadImage("tests/data/four.png").Unwrap()
+    Test.Equal(tex.Width(), 2)
+    Test.Equal(tex.Height(), 2)
+    Sdl2.PixelArt(true)
+    ren.Color(0, 0, 0, 255)
+    ren.Clear()
+    tex.DrawScaled(0, 0, 20, 20)
+    let px: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(px[(2 * 64 + 2).ToI64()], 0xFFFF0000_U32)
+    Test.Equal(px[(2 * 64 + 15).ToI64()], 0xFF00FF00_U32)
+    Test.Equal(px[(15 * 64 + 2).ToI64()], 0xFF0000FF_U32)
+    // white at half alpha over black is mid grey
+    let g: U32 = channel(px[(15 * 64 + 15).ToI64()], 8)
+    Test.True(g > 100_U32 && g < 160_U32)
+    tex.Close()
+    Image.Quit()
+    teardown(win, ren)
+}
+
+test "a missing image file is an error" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    Image.Init().Unwrap()
+    Test.Err<Sdl2.Texture, Error>(ren.LoadImage("tests/data/none.png"))
+    Image.Quit()
+    teardown(win, ren)
+}
+
+test "bmp loads without SDL2_image" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    let tex: Sdl2.Texture = ren.LoadBmp("tests/data/four.bmp").Unwrap()
+    Sdl2.PixelArt(true)
+    ren.Color(0, 0, 0, 255)
+    ren.Clear()
+    tex.DrawScaled(0, 0, 20, 20)
+    let px: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(px[(2 * 64 + 2).ToI64()], 0xFFFF0000_U32)
+    Test.Equal(px[(2 * 64 + 15).ToI64()], 0xFF00FF00_U32)
+    Test.Equal(px[(15 * 64 + 2).ToI64()], 0xFF0000FF_U32)
+    Test.Equal(px[(15 * 64 + 15).ToI64()], 0xFFFFFFFF_U32)
+    tex.Close()
+    teardown(win, ren)
+}
