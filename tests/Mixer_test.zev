@@ -84,3 +84,13 @@ test "missing files are errors" {
     Test.Err<Mixer.Music, Error>(Mixer.Music.Load("tests/data/none.ogg"))
     Mixer.Quit()
 }
+
+test "a non-ASCII file name loads" {
+    Sdl2.Headless()
+    Mixer.Init().Unwrap()
+    let s: Mixer.Sound = Mixer.Sound.Load("tests/data/音.wav").Unwrap()
+    let m: Mixer.Music = Mixer.Music.Load("tests/data/音.wav").Unwrap()
+    s.Close()
+    m.Close()
+    Mixer.Quit()
+}

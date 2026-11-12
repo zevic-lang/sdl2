@@ -86,3 +86,16 @@ test "bmp loads without SDL2_image" {
     tex.Close()
     teardown(win, ren)
 }
+
+test "non-ASCII file names load" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    Image.Init().Unwrap()
+    let a: Sdl2.Texture = ren.LoadImage("tests/data/日本語.png").Unwrap()
+    let b: Sdl2.Texture = ren.LoadBmp("tests/data/日本語.bmp").Unwrap()
+    Test.Equal(a.Width(), 2)
+    Test.Equal(b.Width(), 2)
+    a.Close()
+    b.Close()
+    Image.Quit()
+    teardown(win, ren)
+}
