@@ -14,15 +14,17 @@ zevpm get zevic-lang/sdl2@v0.2.0
 import Sdl2
 import Sdl2.Audio as Audio        // optional
 import Sdl2.Gamepad as Gamepad    // optional
+import Sdl2.Image as Image        // optional, needs SDL2_image installed
+import Sdl2.Mixer as Mixer        // optional, needs SDL2_mixer installed
 ```
 
 `zevpm build` / `zevpm run` link `-lSDL2` for you (this package's `[native] libs`).
 
 | OS | SDL2 development files |
 | --- | --- |
-| Ubuntu / Debian | `sudo apt install libsdl2-dev` |
-| macOS | `brew install sdl2` |
-| Windows | SDL2 development libraries (vcpkg `sdl2`, or the MinGW/VC zip from libsdl.org) |
+| Ubuntu / Debian | `sudo apt install libsdl2-dev` (optional: `libsdl2-image-dev libsdl2-mixer-dev`) |
+| macOS | `brew install sdl2` (optional: `sdl2_image sdl2_mixer`) |
+| Windows | SDL2 development libraries (vcpkg `sdl2`, or the MinGW/VC zip from libsdl.org); optional SDL2_image.dll and SDL2_mixer.dll next to the program |
 
 ## Quick start
 
@@ -75,6 +77,10 @@ Close what you open with `defer x.Close()`; there are no finalizers.
 - `Framebuffer.Draw(Array<U32>)` with 0xAARRGGBB pixels
 - `EventPump.Poll()` gives `Option<Event>`: `Quit`, `KeyDown(key, mods)`, `KeyUp`, `TextInput(text)`, `MouseMove`, `MouseDown(button, x, y)`, `MouseUp`, `Wheel(dx, dy)`, `Resized(w, h)`, `Focus(on)`, `PadDown(id, button)`, `PadUp`, `PadAdded`, `PadRemoved`, `Other(type)`
 
+**Sdl2.Image** (optional, needs SDL2_image): `Init`, `InitFrom(path)`, `Quit`, `IsLoaded`, `Version`, `Supports(Image.PNG)`; then `Renderer.LoadImage(path)` gives a `Texture` (PNG, JPG, TIF, WEBP with alpha)
+
+**Sdl2.Mixer** (optional, needs SDL2_mixer): `Init`, `InitWith(rate, channels, buffer)`, `InitFrom(path)`, `Quit`, `IsLoaded`, `Version`, `SetChannels`, `Volume`, `Playing`, `Halt`, `MusicVolume`, `MusicPlaying`, `MusicPaused`, `PauseMusic`, `ResumeMusic`, `StopMusic`; `Sound.Load(path)` with `Play`, `PlayRepeat`, `Loop`, `SetVolume`, `Close`; `Music.Load(path)` with `Play`, `PlayTimes`, `Loop`, `Close`
+
 **Sdl2.Audio**: `Init`, `Device.Open(rate, channels)`, `Queue(Array<I16>)`, `Queued`, `Clear`, `Pause`, `Close`, `Sine(freq, seconds, rate, volume)`
 
 **Sdl2.Gamepad**: `Init`, `Count`, `IsPad`, `Pad.Open(index)`, `Button`, `Axis`, `Name`, `Id`, `Close`, `Stick(raw, dead)`; constants `Button*`, `Axis*`
@@ -92,6 +98,8 @@ Every example in `examples/` is its own zevpm package that depends on this one b
 | `events` | every event type, text input |
 | `gamepad` | controllers |
 | `beep` | audio queue |
+| `image` | PNG with alpha through SDL2_image |
+| `mixer` | sound effects and music through SDL2_mixer |
 
 ```
 cd examples/sprites
@@ -112,7 +120,8 @@ The tests call `Sdl2.Headless()`, which switches SDL to its dummy video and audi
 - SDL constants are read from the real headers through `zsdl_const`, never copied.
 - Audio uses SDL's queue API instead of callbacks (Zevic passes only non-capturing `fn`).
 - `Renderer.Text` uses a built-in 8x8 font (ASCII only), so text needs no SDL_ttf and no font files. Non-ASCII characters draw as `?`.
-- Not covered yet: SDL_image / SDL_ttf / SDL_mixer, joysticks that are not game controllers, haptics, window icons.
+- SDL2_image and SDL2_mixer are loaded at run time with `SDL_LoadObject`, not linked. A program that never calls `Image.Init()` or `Mixer.Init()` needs only SDL2. Set `ZEVIC_SDL2_IMAGE` / `ZEVIC_SDL2_MIXER` to a library path if yours is somewhere unusual.
+- Not covered yet: SDL_ttf, joysticks that are not game controllers, haptics, window icons.
 
 ## License
 
