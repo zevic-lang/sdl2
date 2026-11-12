@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+- `Sdl2.Ttf`: TrueType / OpenType text through SDL2_ttf, loaded at run time like Image and Mixer. Sizes, bold / italic / underline / strikethrough, measuring, word wrap, UTF-8 (Japanese with a font that has the glyphs); text comes back as pixels or as a ready `Texture`
+- Windows: the shim calls `SDL_SetMainReady()` (no SDL2main needed); `.gitattributes` keeps LF in sources and assets binary; non-ASCII file names are tested. `scripts/windows-check.sh` builds the tests and examples for 64-bit Windows from Linux and runs them under Wine against the official DLLs; CI runs it
+- `Renderer.SaveBmp(path)` saves a screenshot
+- New example: `ttf` (bundles DejaVu Sans, see its licence file)
+- 13 new tests (43 in total), including a generated box font for exact pixel checks (`scripts/make-test-font.py`)
+
 ## 0.3.0
 
 - `Sdl2.Image`: PNG, JPG, TIF and WEBP loading through SDL2_image; `Renderer.LoadImage(path)` returns a `Texture`
