@@ -44,3 +44,21 @@ jobs:
             echo "== $d"
             (cd "$d" && zevpm2 build)
           done
+
+  windows-cross:
+    # Builds for 64-bit Windows with zig's bundled clang and runs the tests under Wine against the official
+    # SDL2 Windows DLLs. It checks the Win32 build of the shim and the Zevic code, not the MSVC toolchain.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Wine and clang
+        run: sudo apt-get update && sudo apt-get install -y wine64 clang
+
+      - name: Build the Zevic toolchain
+        run: |
+          git clone --depth 1 https://github.com/zevic-lang/zevic.git "$RUNNER_TEMP/zevic"
+          make -C "$RUNNER_TEMP/zevic"
+
+      - name: Test on Windows (Wine)
+        run: ZEVIC_HOME="$RUNNER_TEMP/zevic" ./scripts/windows-check.sh
