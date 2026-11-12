@@ -1,0 +1,182 @@
+module Sdl2.Ttf
+
+// TrueType and OpenType text through SDL2_ttf: any size, antialiased, UTF-8 (so Japanese and emoji fonts work
+// as far as the font has the glyphs), bold / italic / underline, word wrap.
+//
+// SDL2_ttf is loaded when you call Init(), not when your program is linked, so programs that never import this
+// module do not need it installed (libsdl2-ttf-dev, `brew install sdl2_ttf`, or SDL2_ttf.dll next to the program).
+// Set ZEVIC_SDL2_TTF to a library path to override the search.
+//
+//     import Sdl2.Ttf as Ttf
+//
+//     Ttf.Init().Unwrap()
+//     defer Ttf.Quit()
+//     let font: Ttf.Font = Ttf.Font.Open("DejaVuSans.ttf", 24).Unwrap()
+//     defer font.Close()
+//     let label: Sdl2.Texture = font.Texture(ren, "Hello, 世界", 255, 255, 255, 255).Unwrap()
+//     label.Draw(20, 20)
+
+import Sdl2
+
+extern "C" {
+    fn zsdl_error() -> CString
+    fn zsdl_ttf_open(path: CString) -> CInt
+    fn zsdl_ttf_close() -> CVoid
+    fn zsdl_ttf_loaded() -> CInt
+    fn zsdl_ttf_version() -> CString
+
+    fn zsdl_ttf_font_open(path: CString, size: CInt) -> *CVoid
+    fn zsdl_ttf_font_close(f: *CVoid) -> CVoid
+    fn zsdl_ttf_font_set_size(f: *CVoid, size: CInt) -> CInt
+    fn zsdl_ttf_font_height(f: *CVoid) -> CInt
+    fn zsdl_ttf_font_ascent(f: *CVoid) -> CInt
+    fn zsdl_ttf_font_descent(f: *CVoid) -> CInt
+    fn zsdl_ttf_font_line_skip(f: *CVoid) -> CInt
+    fn zsdl_ttf_font_set_style(f: *CVoid, style: CInt) -> CVoid
+    fn zsdl_ttf_font_style(f: *CVoid) -> CInt
+    fn zsdl_ttf_font_family(f: *CVoid) -> CString
+    fn zsdl_ttf_text_w(f: *CVoid, text: CString) -> CInt
+    fn zsdl_ttf_text_h(f: *CVoid, text: CString) -> CInt
+
+    fn zsdl_ttf_render(f: *CVoid, text: CString, r: CInt, g: CInt, b: CInt, a: CInt, wrap: CInt) -> *CVoid
+    fn zsdl_ttf_surf_w(s: *CVoid) -> CInt
+    fn zsdl_ttf_surf_h(s: *CVoid) -> CInt
+    fn zsdl_ttf_surf_copy(s: *CVoid, out: *U32) -> CInt
+    fn zsdl_ttf_surf_free(s: *CVoid) -> CVoid
+}
+
+// Style bits for Font.SetStyle (add them together: Bold + Italic).
+let Bold: I32 = 1
+let Italic: I32 = 2
+let Underline: I32 = 4
+let Strikethrough: I32 = 8
+
+fn fail(what: String) -> Error {
+    Error.New(ErrorKind.Other, "${what}: ${String.FromCLossy(zsdl_error())}")
+}
+
+fn open(path: String) -> Result<Unit, Error> {
+    if (zsdl_ttf_open(path.ToC()).ToI32() != 0) {
+        return Err(Error.New(ErrorKind.NotFound, "SDL2_ttf: ${String.FromCLossy(zsdl_error())}. Install SDL2_ttf (libsdl2-ttf-dev, brew install sdl2_ttf, or SDL2_ttf.dll) or set ZEVIC_SDL2_TTF to its path."))
+    }
+    Ok(())
+}
+
+// Finds and loads SDL2_ttf in the usual places for this OS.
+fn Init() -> Result<Unit, Error> { open("") }
+
+// Loads SDL2_ttf from an explicit file path.
+fn InitFrom(path: String) -> Result<Unit, Error> { open(path) }
+
+// Unloads SDL2_ttf. Close your fonts first; textures you already made stay valid.
+fn Quit() { zsdl_ttf_close() }
+
+fn IsLoaded() -> Bool { zsdl_ttf_loaded().ToI32() != 0 }
+
+// The SDL2_ttf version, for example "2.22.0" (empty before Init).
+fn Version() -> String { String.FromCLossy(zsdl_ttf_version()) }
+
+// Rendered text as 0xAARRGGBB pixels, row by row.
+class TextImage {
+    w: I32
+    h: I32
+    px: Array<U32>
+
+    fn Init(w: I32, h: I32, px: Array<U32>) {
+        this.w = w
+        this.h = h
+        this.px = px
+    }
+
+    fn Width() -> I32 { this.w }
+    fn Height() -> I32 { this.h }
+    fn Pixels() -> Array<U32> { this.px }
+}
+
+class Font {
+    p: *CVoid = Null
+
+    fn Init(p: *CVoid) { this.p = p }
+
+    // Opens a .ttf / .otf / .ttc file at `size` points (about pixels of line height).
+    static fn Open(path: String, size: I32) -> Result<Font, Error> {
+        let p: *CVoid = zsdl_ttf_font_open(path.ToC(), size.ToCInt())
+        if (p == Null) {
+            return Err(fail("open font ${path}"))
+        }
+        Ok(Font.New(p))
+    }
+
+    fn Close() { zsdl_ttf_font_close(this.p) }
+
+    fn SetSize(size: I32) -> Result<Unit, Error> {
+        if (zsdl_ttf_font_set_size(this.p, size.ToCInt()).ToI32() != 0) {
+            return Err(fail("set font size"))
+        }
+        Ok(())
+    }
+
+    // Line height, the distance from baseline up and down, and the distance between two lines.
+    fn Height() -> I32 { zsdl_ttf_font_height(this.p).ToI32() }
+    fn Ascent() -> I32 { zsdl_ttf_font_ascent(this.p).ToI32() }
+    fn Descent() -> I32 { zsdl_ttf_font_descent(this.p).ToI32() }
+    fn LineSkip() -> I32 { zsdl_ttf_font_line_skip(this.p).ToI32() }
+
+    fn Family() -> String { String.FromCLossy(zsdl_ttf_font_family(this.p)) }
+
+    // Bold, Italic, Underline, Strikethrough added together; 0 is normal.
+    fn SetStyle(style: I32) { zsdl_ttf_font_set_style(this.p, style.ToCInt()) }
+    fn Style() -> I32 { zsdl_ttf_font_style(this.p).ToI32() }
+
+    // The width and height `text` would take on one line.
+    fn Measure(text: String) -> Result<(I32, I32), Error> {
+        let w: I32 = zsdl_ttf_text_w(this.p, text.ToC()).ToI32()
+        if (w < 0) {
+            return Err(fail("measure text"))
+        }
+        Ok((w, zsdl_ttf_text_h(this.p, text.ToC()).ToI32()))
+    }
+
+    // The text as pixels in the given colour. Empty text is an error (there is nothing to draw).
+    fn Image(text: String, r: I32, g: I32, b: I32, a: I32) -> Result<TextImage, Error> {
+        this.render(text, r, g, b, a, 0)
+    }
+
+    // The same, breaking lines at `width` pixels (and at newlines).
+    fn ImageWrapped(text: String, r: I32, g: I32, b: I32, a: I32, width: I32) -> Result<TextImage, Error> {
+        this.render(text, r, g, b, a, width)
+    }
+
+    // A texture of the text, ready to draw. Make it once and reuse it: rendering text is slower than drawing a texture.
+    fn Texture(ren: Sdl2.Renderer, text: String, r: I32, g: I32, b: I32, a: I32) -> Result<Sdl2.Texture, Error> {
+        let img: TextImage = this.Image(text, r, g, b, a)?
+        ren.TextureFromPixels(img.Pixels(), img.Width(), img.Height())
+    }
+
+    fn TextureWrapped(ren: Sdl2.Renderer, text: String, r: I32, g: I32, b: I32, a: I32, width: I32) -> Result<Sdl2.Texture, Error> {
+        let img: TextImage = this.ImageWrapped(text, r, g, b, a, width)?
+        ren.TextureFromPixels(img.Pixels(), img.Width(), img.Height())
+    }
+
+    fn render(text: String, r: I32, g: I32, b: I32, a: I32, wrap: I32) -> Result<TextImage, Error> {
+        let s: *CVoid = zsdl_ttf_render(this.p, text.ToC(), r.ToCInt(), g.ToCInt(), b.ToCInt(), a.ToCInt(), wrap.ToCInt())
+        if (s == Null) {
+            return Err(fail("render text"))
+        }
+        let w: I32 = zsdl_ttf_surf_w(s).ToI32()
+        let h: I32 = zsdl_ttf_surf_h(s).ToI32()
+        mut px: Array<U32> = []
+        mut i: I64 = 0
+        let n: I64 = w.ToI64() * h.ToI64()
+        while (i < n) {
+            px.Push(0_U32)
+            i += 1
+        }
+        let rc: I32 = zsdl_ttf_surf_copy(s, px.Ptr()).ToI32()
+        zsdl_ttf_surf_free(s)
+        if (rc != 0) {
+            return Err(fail("read text pixels"))
+        }
+        Ok(TextImage.New(w, h, px))
+    }
+}
