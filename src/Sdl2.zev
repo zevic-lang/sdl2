@@ -85,6 +85,7 @@ extern "C" {
 
     fn zsdl_texture_from_pixels(r: *CVoid, pixels: *U32, w: CInt, h: CInt) -> *CVoid
     fn zsdl_texture_from_bmp(r: *CVoid, path: CString) -> *CVoid
+    fn zsdl_img_texture(r: *CVoid, path: CString) -> *CVoid
     fn zsdl_texture_w(t: *CVoid) -> CInt
     fn zsdl_texture_h(t: *CVoid) -> CInt
     fn zsdl_texture_color(t: *CVoid, r: CInt, g: CInt, b: CInt, a: CInt) -> CInt
@@ -393,6 +394,15 @@ class Renderer {
         let t: *CVoid = zsdl_texture_from_pixels(this.p, pixels.Ptr(), w.ToCInt(), h.ToCInt())
         if (t == Null) {
             return Err(fail("SDL_CreateTextureFromSurface"))
+        }
+        Ok(Texture.New(this.p, t))
+    }
+
+    // A texture from an image file (PNG, JPG, ...). Needs `Sdl2.Image.Init()` first.
+    fn LoadImage(path: String) -> Result<Texture, Error> {
+        let t: *CVoid = zsdl_img_texture(this.p, path.ToC())
+        if (t == Null) {
+            return Err(fail("load image ${path}"))
         }
         Ok(Texture.New(this.p, t))
     }
