@@ -53,7 +53,7 @@ fn fail(what: String) -> Error {
 
 fn open(path: String, rate: I32, channels: I32, buffer: I32) -> Result<Unit, Error> {
     if (zsdl_mix_open(path.ToC(), rate.ToCInt(), channels.ToCInt(), buffer.ToCInt()).ToI32() != 0) {
-        return Err(Error.New(ErrorKind.NotFound, "SDL2_mixer: ${String.FromCLossy(zsdl_error())}"))
+        return Err(Error.New(ErrorKind.NotFound, "SDL2_mixer: ${String.FromCLossy(zsdl_error())}. Install SDL2_mixer (libsdl2-mixer-dev, brew install sdl2_mixer, or SDL2_mixer.dll) or set ZEVIC_SDL2_MIXER to its path."))
     }
     Ok(())
 }

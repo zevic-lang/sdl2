@@ -31,7 +31,7 @@ let WEBP: I32 = 8
 
 fn open(path: String) -> Result<Unit, Error> {
     if (zsdl_img_open(path.ToC()).ToI32() != 0) {
-        return Err(Error.New(ErrorKind.NotFound, "SDL2_image: ${String.FromCLossy(zsdl_error())}"))
+        return Err(Error.New(ErrorKind.NotFound, "SDL2_image: ${String.FromCLossy(zsdl_error())}. Install SDL2_image (libsdl2-image-dev, brew install sdl2_image, or SDL2_image.dll) or set ZEVIC_SDL2_IMAGE to its path."))
     }
     Ok(())
 }
