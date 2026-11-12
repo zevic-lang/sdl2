@@ -1,0 +1,131 @@
+module Sdl2TtfTest
+
+import Sdl2
+import Sdl2.Ttf as Ttf
+import Zevic.Test
+
+fn setup() -> (Sdl2.Window, Sdl2.Renderer) {
+    Sdl2.Headless()
+    Sdl2.Init().Unwrap()
+    let win: Sdl2.Window = Sdl2.Window.Open("test", 64, 48).Unwrap()
+    let ren: Sdl2.Renderer = win.Renderer().Unwrap()
+    (win, ren)
+}
+
+fn teardown(win: Sdl2.Window, ren: Sdl2.Renderer) {
+    ren.Close()
+    win.Close()
+    Sdl2.Quit()
+}
+
+fn near(a: I32, b: I32) -> Bool { a >= b - 1 && a <= b + 1 }
+
+test "fonts need Init first" {
+    Test.True(!Ttf.IsLoaded())
+    Test.Err<Ttf.Font, Error>(Ttf.Font.Open("tests/data/box.ttf", 20))
+}
+
+test "an explicit missing library path is an error" {
+    Test.Err<Unit, Error>(Ttf.InitFrom("/no/such/libSDL2_ttf.so"))
+    Test.True(!Ttf.IsLoaded())
+}
+
+test "init reports the version" {
+    Ttf.Init().Unwrap()
+    Test.True(Ttf.IsLoaded())
+    Test.True(!Ttf.Version().IsEmpty())
+    Ttf.Quit()
+    Test.True(!Ttf.IsLoaded())
+}
+
+test "a font reports its metrics and family" {
+    Ttf.Init().Unwrap()
+    let f: Ttf.Font = Ttf.Font.Open("tests/data/box.ttf", 20).Unwrap()
+    Test.Equal(f.Family(), "ZevicBox")
+    Test.Equal(f.Ascent(), 16)
+    Test.Equal(f.Descent(), -4)
+    Test.Equal(f.Height(), 20)
+    Test.True(f.LineSkip() >= 20)
+    f.Close()
+    Ttf.Quit()
+}
+
+test "styles are kept" {
+    Ttf.Init().Unwrap()
+    let f: Ttf.Font = Ttf.Font.Open("tests/data/box.ttf", 20).Unwrap()
+    Test.Equal(f.Style(), 0)
+    f.SetStyle(Ttf.Bold + Ttf.Underline)
+    Test.Equal(f.Style(), 5)
+    f.Close()
+    Ttf.Quit()
+}
+
+test "text is measured from the glyph advances" {
+    Ttf.Init().Unwrap()
+    let f: Ttf.Font = Ttf.Font.Open("tests/data/box.ttf", 20).Unwrap()
+    let (w1, h1): (I32, I32) = f.Measure("A").Unwrap()
+    let (w2, _): (I32, I32) = f.Measure("AB").Unwrap()
+    let (wj, _): (I32, I32) = f.Measure("あ日").Unwrap()
+    Test.True(near(w1, 12))
+    Test.True(near(w2, 24))
+    Test.True(near(wj, 40))
+    Test.Equal(h1, 20)
+    f.SetSize(40).Unwrap()
+    let (w3, _): (I32, I32) = f.Measure("A").Unwrap()
+    Test.True(near(w3, 24))
+    f.Close()
+    Ttf.Quit()
+}
+
+test "text renders to pixels in the requested colour" {
+    Ttf.Init().Unwrap()
+    let f: Ttf.Font = Ttf.Font.Open("tests/data/box.ttf", 20).Unwrap()
+    let img: Ttf.TextImage = f.Image("A", 255, 128, 0, 255).Unwrap()
+    Test.True(near(img.Width(), 12))
+    Test.Equal(img.Height(), 20)
+    Test.Equal(img.Pixels().Len(), img.Width().ToI64() * img.Height().ToI64())
+    // the glyph is a box from x 2 to 10 and y 2 to 16 (baseline 16 pixels down)
+    let center: U32 = img.Pixels()[(9 * img.Width() + 6).ToI64()]
+    Test.Equal(center, 0xFFFF8000_U32)
+    // the corner of the cell is empty
+    Test.Equal(img.Pixels()[0] >> 24, 0_U32)
+    f.Close()
+    Ttf.Quit()
+}
+
+test "wrapped text makes a taller image" {
+    Ttf.Init().Unwrap()
+    let f: Ttf.Font = Ttf.Font.Open("tests/data/box.ttf", 20).Unwrap()
+    let one: Ttf.TextImage = f.Image("A B", 255, 255, 255, 255).Unwrap()
+    let wrapped: Ttf.TextImage = f.ImageWrapped("A B", 255, 255, 255, 255, 14).Unwrap()
+    Test.True(wrapped.Height() > one.Height())
+    Test.True(wrapped.Width() <= 14)
+    f.Close()
+    Ttf.Quit()
+}
+
+test "text becomes a texture that draws" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    Ttf.Init().Unwrap()
+    let f: Ttf.Font = Ttf.Font.Open("tests/data/box.ttf", 20).Unwrap()
+    let tex: Sdl2.Texture = f.Texture(ren, "A", 0, 255, 0, 255).Unwrap()
+    ren.Color(0, 0, 0, 255)
+    ren.Clear()
+    tex.Draw(10, 10)
+    let px: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(px[(19 * 64 + 16).ToI64()], 0xFF00FF00_U32)
+    Test.Equal(px[(10 * 64 + 10).ToI64()], 0xFF000000_U32)
+    tex.Close()
+    f.Close()
+    Ttf.Quit()
+    teardown(win, ren)
+}
+
+test "empty text, missing fonts and non-ASCII paths" {
+    Ttf.Init().Unwrap()
+    let f: Ttf.Font = Ttf.Font.Open("tests/data/フォント.ttf", 20).Unwrap()
+    Test.Err<Ttf.TextImage, Error>(f.Image("", 255, 255, 255, 255))
+    Test.Err<Ttf.Font, Error>(Ttf.Font.Open("tests/data/none.ttf", 20))
+    f.Close()
+    Ttf.Quit()
+}
