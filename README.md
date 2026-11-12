@@ -7,7 +7,7 @@ SDL2 bindings for [Zevic](https://github.com/zevic-lang/zevic). A thin C shim (`
 Install the SDL2 development files for your system, then:
 
 ```
-zevpm get zevic-lang/sdl2@v0.3.0
+zevpm get zevic-lang/sdl2@v0.4.0
 ```
 
 ```
