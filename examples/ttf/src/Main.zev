@@ -1,0 +1,118 @@
+module Main
+
+import Sdl2
+import Sdl2.Ttf as Ttf
+import Zevic.Console
+
+// Antialiased TrueType text: sizes, styles, word wrap and Japanese. Run from this folder. Escape quits.
+//
+// DejaVu Sans (assets/) covers Latin, Greek and Cyrillic. Japanese needs a font that has the glyphs, so the
+// example looks for one that is usually installed; if it finds none it says so. Use any .ttf / .ttc you like.
+fn openJapanese(size: I32) -> Option<Ttf.Font> {
+    let candidates: Array<String> = [
+        "C:/Windows/Fonts/YuGothM.ttc",
+        "C:/Windows/Fonts/meiryo.ttc",
+        "C:/Windows/Fonts/msgothic.ttc",
+        "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc",
+        "/System/Library/Fonts/Hiragino Sans GB.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf",
+        "/usr/share/fonts/truetype/takao-gothic/TakaoGothic.ttf",
+        "/usr/share/fonts/truetype/fonts-japanese-gothic.ttf",
+    ]
+    mut i: I64 = 0
+    while (i < candidates.Len()) {
+        match (Ttf.Font.Open(candidates[i], size)) {
+            Ok(f) => { return Some(f) },
+            Err(_) => {},
+        }
+        i += 1
+    }
+    None
+}
+
+fn Main() {
+    Sdl2.Init().Unwrap()
+    defer Sdl2.Quit()
+    match (Ttf.Init()) {
+        Ok(_) => {},
+        Err(e) => {
+            Console.Println("${e.Message()}")
+            return
+        },
+    }
+    defer Ttf.Quit()
+
+    let win: Sdl2.Window = Sdl2.Window.Open("ttf", 640, 420).Unwrap()
+    defer win.Close()
+    let ren: Sdl2.Renderer = win.Renderer().Unwrap()
+    defer ren.Close()
+    let pump: Sdl2.EventPump = Sdl2.EventPump.New()
+    defer pump.Close()
+
+    let big: Ttf.Font = Ttf.Font.Open("assets/DejaVuSans.ttf", 40).Unwrap()
+    defer big.Close()
+    let body: Ttf.Font = Ttf.Font.Open("assets/DejaVuSans.ttf", 18).Unwrap()
+    defer body.Close()
+    Console.Println("SDL2_ttf ${Ttf.Version()}, font ${big.Family()}")
+
+    let title: Sdl2.Texture = big.Texture(ren, "SDL2_ttf + Zevic", 255, 210, 60, 255).Unwrap()
+    defer title.Close()
+
+    body.SetStyle(Ttf.Bold)
+    let bold: Sdl2.Texture = body.Texture(ren, "Bold", 255, 255, 255, 255).Unwrap()
+    defer bold.Close()
+    body.SetStyle(Ttf.Italic)
+    let italic: Sdl2.Texture = body.Texture(ren, "Italic", 255, 255, 255, 255).Unwrap()
+    defer italic.Close()
+    body.SetStyle(Ttf.Underline)
+    let underline: Sdl2.Texture = body.Texture(ren, "Underline", 255, 255, 255, 255).Unwrap()
+    defer underline.Close()
+    body.SetStyle(0)
+
+    let paragraph: Sdl2.Texture = body.TextureWrapped(ren,
+        "Text is measured, wrapped at a pixel width and drawn as a texture, so it can be tinted, scaled and rotated like any picture.",
+        170, 200, 255, 255, 560).Unwrap()
+    defer paragraph.Close()
+
+    let spin: Sdl2.Texture = body.Texture(ren, "rotating label", 120, 255, 160, 255).Unwrap()
+    defer spin.Close()
+
+    let jp: Option<Ttf.Font> = openJapanese(26)
+    let japanese: Sdl2.Texture = match (jp) {
+        Some(f) => f.Texture(ren, "こんにちは、世界！ 日本語のテキスト", 255, 255, 255, 255).Unwrap(),
+        None => body.Texture(ren, "(no Japanese font found: put one in openJapanese)", 255, 120, 120, 255).Unwrap(),
+    }
+    defer japanese.Close()
+
+    mut angle: F64 = 0.0
+    mut running: Bool = true
+    while (running) {
+        while (true) {
+            match (pump.Poll()) {
+                Some(ev) => match (ev) {
+                    Sdl2.Event.Quit => { running = false },
+                    Sdl2.Event.KeyDown(key, _) => { if (key == Sdl2.KeyEscape) { running = false } },
+                    _ => {},
+                },
+                None => break,
+            }
+        }
+        angle += 1.5
+        ren.Color(22, 26, 44, 255)
+        ren.Clear()
+        title.Draw(20, 16)
+        bold.Draw(24, 90)
+        italic.Draw(110, 90)
+        underline.Draw(200, 90)
+        paragraph.Draw(24, 130)
+        japanese.Draw(24, 220)
+        spin.DrawEx(250, 300, spin.Width(), spin.Height(), angle, 0)
+        ren.Present()
+        Sdl2.Delay(10)
+    }
+    match (jp) {
+        Some(f) => { f.Close() },
+        None => {},
+    }
+}
