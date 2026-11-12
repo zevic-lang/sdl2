@@ -1,0 +1,86 @@
+module Sdl2MixerTest
+
+import Sdl2
+import Sdl2.Mixer as Mixer
+import Zevic.Test
+
+test "sounds need Init first" {
+    Sdl2.Headless()
+    Test.True(!Mixer.IsLoaded())
+    Test.Err<Mixer.Sound, Error>(Mixer.Sound.Load("tests/data/tone.wav"))
+    Test.Err<Mixer.Music, Error>(Mixer.Music.Load("tests/data/tone.wav"))
+}
+
+test "an explicit missing library path is an error" {
+    Sdl2.Headless()
+    Test.Err<Unit, Error>(Mixer.InitFrom("/no/such/libSDL2_mixer.so"))
+    Test.True(!Mixer.IsLoaded())
+}
+
+test "init reports the version" {
+    Sdl2.Headless()
+    Mixer.Init().Unwrap()
+    Test.True(Mixer.IsLoaded())
+    Test.True(!Mixer.Version().IsEmpty())
+    Mixer.Quit()
+    Test.True(!Mixer.IsLoaded())
+}
+
+test "a sound plays on a channel and can be halted" {
+    Sdl2.Headless()
+    Mixer.Init().Unwrap()
+    let s: Mixer.Sound = Mixer.Sound.Load("tests/data/tone.wav").Unwrap()
+    s.SetVolume(64)
+    let ch: I32 = s.Play().Unwrap()
+    Test.True(ch >= 0)
+    Test.True(Mixer.Playing(ch))
+    Mixer.Halt(ch)
+    Test.True(!Mixer.Playing(ch))
+    s.Close()
+    Mixer.Quit()
+}
+
+test "a looping sound keeps playing" {
+    Sdl2.Headless()
+    Mixer.Init().Unwrap()
+    let s: Mixer.Sound = Mixer.Sound.Load("tests/data/tone.wav").Unwrap()
+    let ch: I32 = s.Loop().Unwrap()
+    Sdl2.Delay(1300)
+    Test.True(Mixer.Playing(ch))
+    Mixer.Halt(Mixer.AllChannels)
+    Test.True(!Mixer.Playing(Mixer.AllChannels))
+    s.Close()
+    Mixer.Quit()
+}
+
+test "channels can be added" {
+    Sdl2.Headless()
+    Mixer.Init().Unwrap()
+    Test.Equal(Mixer.SetChannels(16), 16)
+    Mixer.Quit()
+}
+
+test "music plays, pauses and stops" {
+    Sdl2.Headless()
+    Mixer.Init().Unwrap()
+    let m: Mixer.Music = Mixer.Music.Load("tests/data/tone.wav").Unwrap()
+    Mixer.MusicVolume(32)
+    m.Play().Unwrap()
+    Test.True(Mixer.MusicPlaying())
+    Mixer.PauseMusic()
+    Test.True(Mixer.MusicPaused())
+    Mixer.ResumeMusic()
+    Test.True(!Mixer.MusicPaused())
+    Mixer.StopMusic()
+    Test.True(!Mixer.MusicPlaying())
+    m.Close()
+    Mixer.Quit()
+}
+
+test "missing files are errors" {
+    Sdl2.Headless()
+    Mixer.Init().Unwrap()
+    Test.Err<Mixer.Sound, Error>(Mixer.Sound.Load("tests/data/none.wav"))
+    Test.Err<Mixer.Music, Error>(Mixer.Music.Load("tests/data/none.ogg"))
+    Mixer.Quit()
+}
