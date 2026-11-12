@@ -57,3 +57,24 @@ cd "$here"
 # Windows does (real Windows stores UTF-16 names and needs no such setting).
 LANG=C.UTF-8 LC_ALL=C.UTF-8 WINEDEBUG=-all WINEPREFIX="${WINEPREFIX:-$cache/prefix}" \
     SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy wine ./tests.exe | tr -d '\r'
+
+echo
+echo "== examples (zevpm build for Windows; hello, framebuffer and beep also run)"
+pm="$ZEVIC_HOME/build/zevpm"
+[ -x "$pm" ] || pm="$ZEVIC_HOME/build/zevpm2"
+trap 'rm -f "$here"/SDL2*.dll "$here/tests.exe"; rm -rf "$work" "$here"/examples/*/build' EXIT
+export ZEVIC_CLANG="$cache/zcc" LANG=C.UTF-8 LC_ALL=C.UTF-8 WINEDEBUG=-all SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+export WINEPREFIX="${WINEPREFIX:-$cache/prefix}"
+for dir in "$here"/examples/*/; do
+    name="$(basename "$dir")"
+    (cd "$dir" && "$pm" build >/dev/null)
+    exe="$(ls "$dir"build | grep -v '\.pdb$' | head -1)"
+    cp "$work"/*.dll "$dir/build/"
+    cp "$dir/build/$exe" "$dir/build/$exe.exe"
+    case "$name" in
+        hello|framebuffer|beep)
+            out="$(cd "$dir" && timeout 120 wine "build/$exe.exe" | tr -d '\r' | tail -1)"
+            echo "  ok    $name: $out" ;;
+        *) echo "  ok    $name (built)" ;;
+    esac
+done
