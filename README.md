@@ -16,14 +16,15 @@ import Sdl2.Audio as Audio        // optional
 import Sdl2.Gamepad as Gamepad    // optional
 import Sdl2.Image as Image        // optional, needs SDL2_image installed
 import Sdl2.Mixer as Mixer        // optional, needs SDL2_mixer installed
+import Sdl2.Ttf as Ttf            // optional, needs SDL2_ttf installed
 ```
 
 `zevpm build` / `zevpm run` link `-lSDL2` for you (this package's `[native] libs`).
 
 | OS | SDL2 development files |
 | --- | --- |
-| Ubuntu / Debian | `sudo apt install libsdl2-dev` (optional: `libsdl2-image-dev libsdl2-mixer-dev`) |
-| macOS | `brew install sdl2` (optional: `sdl2_image sdl2_mixer`) |
+| Ubuntu / Debian | `sudo apt install libsdl2-dev` (optional: `libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev`) |
+| macOS | `brew install sdl2` (optional: `sdl2_image sdl2_mixer sdl2_ttf`) |
 | Windows | SDL2 development libraries (vcpkg `sdl2`, or the MinGW/VC zip from libsdl.org); optional SDL2_image.dll and SDL2_mixer.dll next to the program |
 
 ## Windows
@@ -82,7 +83,7 @@ Close what you open with `defer x.Close()`; there are no finalizers.
 - Input state: `KeyHeld(scancode)`, `MouseX`, `MouseY`, `ModState`, `HasMod`, `TextInput(on)`; constants `Key*`, `Mod*`, `Button*`
 - Other: `ClipboardText`, `SetClipboardText`, `MessageBox`, `RequestQuit`
 - `Window.Open(title, w, h)`: `Close`, `SetTitle`, `Width`, `Height`, `SetSize`, `SetMinSize`, `SetPosition`, `X`, `Y`, `SetResizable`, `SetFullscreen`, `Show`, `Hide`, `Raise`, `Renderer()`
-- `Renderer`: `Color`, `Clear`, `Present`, `Point`, `Line`, `Rect`, `FillRect`, `Text`, `Blend`, `SetLogicalSize`, `SetClip`, `ClearClip`, `OutputWidth`, `OutputHeight`, `ReadPixels`, `TextureFromPixels`, `LoadBmp`, `Framebuffer`
+- `Renderer`: `Color`, `Clear`, `Present`, `Point`, `Line`, `Rect`, `FillRect`, `Text`, `SaveBmp` (screenshot), `Blend`, `SetLogicalSize`, `SetClip`, `ClearClip`, `OutputWidth`, `OutputHeight`, `ReadPixels`, `TextureFromPixels`, `LoadBmp`, `Framebuffer`
 - `Texture`: `Width`, `Height`, `SetColor`, `Draw`, `DrawScaled`, `DrawEx(angle, flip)`, `DrawPart`
 - `Framebuffer.Draw(Array<U32>)` with 0xAARRGGBB pixels
 - `EventPump.Poll()` gives `Option<Event>`: `Quit`, `KeyDown(key, mods)`, `KeyUp`, `TextInput(text)`, `MouseMove`, `MouseDown(button, x, y)`, `MouseUp`, `Wheel(dx, dy)`, `Resized(w, h)`, `Focus(on)`, `PadDown(id, button)`, `PadUp`, `PadAdded`, `PadRemoved`, `Other(type)`
@@ -90,6 +91,8 @@ Close what you open with `defer x.Close()`; there are no finalizers.
 **Sdl2.Image** (optional, needs SDL2_image): `Init`, `InitFrom(path)`, `Quit`, `IsLoaded`, `Version`, `Supports(Image.PNG)`; then `Renderer.LoadImage(path)` gives a `Texture` (PNG, JPG, TIF, WEBP with alpha)
 
 **Sdl2.Mixer** (optional, needs SDL2_mixer): `Init`, `InitWith(rate, channels, buffer)`, `InitFrom(path)`, `Quit`, `IsLoaded`, `Version`, `SetChannels`, `Volume`, `Playing`, `Halt`, `MusicVolume`, `MusicPlaying`, `MusicPaused`, `PauseMusic`, `ResumeMusic`, `StopMusic`; `Sound.Load(path)` with `Play`, `PlayRepeat`, `Loop`, `SetVolume`, `Close`; `Music.Load(path)` with `Play`, `PlayTimes`, `Loop`, `Close`
+
+**Sdl2.Ttf** (optional, needs SDL2_ttf): `Init`, `InitFrom(path)`, `Quit`, `IsLoaded`, `Version`; `Font.Open(path, size)` with `Close`, `SetSize`, `Height`, `Ascent`, `Descent`, `LineSkip`, `Family`, `SetStyle(Ttf.Bold + Ttf.Italic ...)`, `Measure(text)`, `Image` / `ImageWrapped` (0xAARRGGBB pixels), `Texture(ren, text, r, g, b, a)` and `TextureWrapped(..., width)`. Text is UTF-8, so Japanese works with a font that has the glyphs.
 
 **Sdl2.Audio**: `Init`, `Device.Open(rate, channels)`, `Queue(Array<I16>)`, `Queued`, `Clear`, `Pause`, `Close`, `Sine(freq, seconds, rate, volume)`
 
@@ -110,6 +113,7 @@ Every example in `examples/` is its own zevpm package that depends on this one b
 | `beep` | audio queue |
 | `image` | PNG with alpha through SDL2_image |
 | `mixer` | sound effects and music through SDL2_mixer |
+| `ttf` | TrueType text, styles, wrapping and Japanese through SDL2_ttf |
 
 ```
 cd examples/sprites
@@ -129,9 +133,9 @@ The tests call `Sdl2.Headless()`, which switches SDL to its dummy video and audi
 - `SDL_Event` is a union and Zevic has no unions, so events live in an opaque buffer read through accessor functions in the shim.
 - SDL constants are read from the real headers through `zsdl_const`, never copied.
 - Audio uses SDL's queue API instead of callbacks (Zevic passes only non-capturing `fn`).
-- `Renderer.Text` uses a built-in 8x8 font (ASCII only), so text needs no SDL_ttf and no font files. Non-ASCII characters draw as `?`.
-- SDL2_image and SDL2_mixer are loaded at run time with `SDL_LoadObject`, not linked. A program that never calls `Image.Init()` or `Mixer.Init()` needs only SDL2. Set `ZEVIC_SDL2_IMAGE` / `ZEVIC_SDL2_MIXER` to a library path if yours is somewhere unusual.
-- Not covered yet: SDL_ttf, joysticks that are not game controllers, haptics, window icons.
+- `Renderer.Text` uses a built-in 8x8 font (ASCII only), so quick text needs no SDL_ttf and no font files; use `Sdl2.Ttf` for real fonts and non-ASCII text. Non-ASCII characters draw as `?`.
+- SDL2_image, SDL2_mixer and SDL2_ttf are loaded at run time with `SDL_LoadObject`, not linked. A program that never calls `Image.Init()`, `Mixer.Init()` or `Ttf.Init()` needs only SDL2. Set `ZEVIC_SDL2_IMAGE` / `ZEVIC_SDL2_MIXER` / `ZEVIC_SDL2_TTF` to a library path if yours is somewhere unusual.
+- Not covered yet: joysticks that are not game controllers, haptics, window icons.
 
 ## License
 
