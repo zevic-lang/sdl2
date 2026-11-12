@@ -26,6 +26,16 @@ import Sdl2.Mixer as Mixer        // optional, needs SDL2_mixer installed
 | macOS | `brew install sdl2` (optional: `sdl2_image sdl2_mixer`) |
 | Windows | SDL2 development libraries (vcpkg `sdl2`, or the MinGW/VC zip from libsdl.org); optional SDL2_image.dll and SDL2_mixer.dll next to the program |
 
+## Windows
+
+The library uses only portable SDL2 calls, so the same source builds on Windows. It does not use SDL2main: the shim calls `SDL_SetMainReady()` itself, and Zevic programs keep their normal `Main`.
+
+1. Get the SDL2 development files and put the headers and `SDL2.lib` where clang can find them, for example with [vcpkg](https://vcpkg.io): `vcpkg install sdl2:x64-windows` and set the `INCLUDE` and `LIB` environment variables to `installed\x64-windows\include` and `installed\x64-windows\lib` (the shim includes `<SDL2/SDL.h>`).
+2. Put `SDL2.dll` next to your program. For the optional modules also put `SDL2_image.dll`, `SDL2_mixer.dll` or `SDL2_ttf.dll` there; they are loaded when you call `Init()`.
+3. `zevpm build` / `zevpm run` as usual. File names are UTF-8 in Zevic and SDL converts them, so paths such as `画像\ねこ.png` work.
+
+What has been checked: `scripts/windows-check.sh` builds the tests and all examples for 64-bit Windows from Linux (zig's bundled clang, mingw-w64 ABI) and runs them under Wine against the official SDL2 / SDL2_image / SDL2_mixer / SDL2_ttf DLLs with SDL's dummy drivers. It does not replace a run on a real Windows machine with the MSVC toolchain, which these steps describe but have not been run.
+
 ## Quick start
 
 ```
