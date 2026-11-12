@@ -13,8 +13,12 @@ void *zsdl_dyn_open(const char *envvar, const char *explicit_path, const char *c
         lib = try_open(env);
         if (lib) return lib;
     }
-    lib = try_open(explicit_path);
-    if (lib) return lib;
+    if (explicit_path && *explicit_path) {
+        /* an explicit path is a request for exactly that file: no fallback to the default names */
+        lib = try_open(explicit_path);
+        if (!lib) SDL_SetError("could not load %s", explicit_path);
+        return lib;
+    }
     for (int i = 0; names && names[i]; i++) {
         lib = try_open(names[i]);
         if (lib) return lib;

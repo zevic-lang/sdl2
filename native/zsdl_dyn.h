@@ -4,7 +4,8 @@
 #define ZSDL_DYN_H
 
 // Opens the first library that loads. Order: the path in the environment variable `envvar` (if set),
-// then `explicit_path` (if not NULL or empty), then each of `names` (NULL-terminated).
+// then `explicit_path` (if not NULL or empty; it is the only candidate after the environment variable),
+// otherwise each of `names` (NULL-terminated).
 // Returns NULL and sets the SDL error when none could be opened.
 void *zsdl_dyn_open(const char *envvar, const char *explicit_path, const char *const *names);
 
