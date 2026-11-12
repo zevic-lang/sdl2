@@ -323,3 +323,16 @@ int zsdl_text_height(const char *text, int scale) {
     for (const unsigned char *p = (const unsigned char *)text; *p; p++) if (*p == '\n') lines++;
     return lines * 8 * scale;
 }
+
+// ---- screenshots ----
+// Writes what the renderer shows (the current target, before Present) to a .bmp file. 0 on success.
+int zsdl_save_bmp(void *r, const char *path) {
+    int w = 0, h = 0;
+    if (SDL_GetRendererOutputSize((SDL_Renderer *)r, &w, &h) != 0) return -1;
+    SDL_Surface *s = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_ARGB8888);
+    if (!s) return -1;
+    int rc = SDL_RenderReadPixels((SDL_Renderer *)r, NULL, SDL_PIXELFORMAT_ARGB8888, s->pixels, s->pitch);
+    if (rc == 0) rc = SDL_SaveBMP(s, path);
+    SDL_FreeSurface(s);
+    return rc;
+}

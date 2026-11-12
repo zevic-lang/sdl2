@@ -86,6 +86,7 @@ extern "C" {
     fn zsdl_texture_from_pixels(r: *CVoid, pixels: *U32, w: CInt, h: CInt) -> *CVoid
     fn zsdl_texture_from_bmp(r: *CVoid, path: CString) -> *CVoid
     fn zsdl_img_texture(r: *CVoid, path: CString) -> *CVoid
+    fn zsdl_save_bmp(r: *CVoid, path: CString) -> CInt
     fn zsdl_texture_w(t: *CVoid) -> CInt
     fn zsdl_texture_h(t: *CVoid) -> CInt
     fn zsdl_texture_color(t: *CVoid, r: CInt, g: CInt, b: CInt, a: CInt) -> CInt
@@ -396,6 +397,14 @@ class Renderer {
             return Err(fail("SDL_CreateTextureFromSurface"))
         }
         Ok(Texture.New(this.p, t))
+    }
+
+    // Saves what has been drawn so far (before Present) as a .bmp file: a screenshot.
+    fn SaveBmp(path: String) -> Result<Unit, Error> {
+        if (zsdl_save_bmp(this.p, path.ToC()).ToI32() != 0) {
+            return Err(fail("save ${path}"))
+        }
+        Ok(())
     }
 
     // A texture from an image file (PNG, JPG, ...). Needs `Sdl2.Image.Init()` first.
