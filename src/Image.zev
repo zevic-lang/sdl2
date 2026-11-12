@@ -1,0 +1,54 @@
+module Sdl2.Image
+
+// PNG, JPG, TIF and WEBP loading through SDL2_image.
+//
+// SDL2_image is loaded when you call Init(), not when your program is linked, so programs that
+// never import this module do not need it installed. Install it with your system's package
+// manager (libsdl2-image-dev, `brew install sdl2_image`, or SDL2_image.dll next to the program).
+//
+//     import Sdl2.Image as Image
+//
+//     Image.Init().Unwrap()
+//     defer Image.Quit()
+//     let tex: Sdl2.Texture = ren.LoadImage("hero.png").Unwrap()
+//
+// Set the environment variable ZEVIC_SDL2_IMAGE to a library path to override the search.
+
+extern "C" {
+    fn zsdl_img_open(path: CString) -> CInt
+    fn zsdl_img_close() -> CVoid
+    fn zsdl_img_loaded() -> CInt
+    fn zsdl_img_flags() -> CInt
+    fn zsdl_img_version() -> CString
+    fn zsdl_error() -> CString
+}
+
+// Decoder flags for Supports().
+let JPG: I32 = 1
+let PNG: I32 = 2
+let TIF: I32 = 4
+let WEBP: I32 = 8
+
+fn open(path: String) -> Result<Unit, Error> {
+    if (zsdl_img_open(path.ToC()).ToI32() != 0) {
+        return Err(Error.New(ErrorKind.NotFound, "SDL2_image: ${String.FromCLossy(zsdl_error())}"))
+    }
+    Ok(())
+}
+
+// Finds and loads SDL2_image in the usual places for this OS.
+fn Init() -> Result<Unit, Error> { open("") }
+
+// Loads SDL2_image from an explicit file path.
+fn InitFrom(path: String) -> Result<Unit, Error> { open(path) }
+
+// Unloads SDL2_image. Textures you already made stay valid.
+fn Quit() { zsdl_img_close() }
+
+fn IsLoaded() -> Bool { zsdl_img_loaded().ToI32() != 0 }
+
+// The SDL2_image version, for example "2.8.2" (empty before Init).
+fn Version() -> String { String.FromCLossy(zsdl_img_version()) }
+
+// Whether a decoder (JPG, PNG, TIF, WEBP) started.
+fn Supports(format: I32) -> Bool { (zsdl_img_flags().ToI32() & format) != 0 }
