@@ -6,7 +6,11 @@
 #include "font8x8.h"
 
 // ---- lifecycle ----
-int zsdl_init(int flags) { return SDL_Init((Uint32)flags); }
+// We have no SDL_main: tell SDL so (SDL's documented route on Windows; a no-op elsewhere).
+int zsdl_init(int flags) {
+    SDL_SetMainReady();
+    return SDL_Init((Uint32)flags);
+}
 void zsdl_quit(void) { SDL_Quit(); }
 const char *zsdl_error(void) { return SDL_GetError(); }
 
@@ -131,7 +135,10 @@ int zsdl_push_quit(void) {
 
 // ---- hints / headless ----
 void zsdl_hint(const char *name, const char *value) { SDL_SetHint(name, value); }
-int zsdl_init_sub(int flags) { return SDL_InitSubSystem((Uint32)flags); }
+int zsdl_init_sub(int flags) {
+    SDL_SetMainReady();
+    return SDL_InitSubSystem((Uint32)flags);
+}
 void zsdl_quit_sub(int flags) { SDL_QuitSubSystem((Uint32)flags); }
 const char *zsdl_version(void) {
     static char buf[32];
