@@ -1,0 +1,13 @@
+# Keep source files LF on every OS, and never touch binary assets.
+* text=auto eol=lf
+*.zev text eol=lf
+*.c text eol=lf
+*.h text eol=lf
+*.toml text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.png binary
+*.bmp binary
+*.wav binary
+*.ttf binary
+*.otf binary
