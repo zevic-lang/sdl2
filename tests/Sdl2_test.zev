@@ -3,6 +3,8 @@ module Sdl2Test
 import Sdl2
 import Sdl2.Audio as Audio
 import Sdl2.Gamepad as Gamepad
+import Zevic.Fs
+import Zevic.Path
 import Zevic.Test
 
 // Every test runs with SDL's dummy drivers: no window, no sound, same result on every OS.
@@ -200,5 +202,30 @@ test "text scales and starts new lines" {
     Test.Equal(px[(16 * 64 + 4).ToI64()], 0xFFFFFFFF_U32)
     Test.Equal(px[(17 * 64 + 5).ToI64()], 0xFFFFFFFF_U32)
     Test.Equal(px[(16 * 64 + 8).ToI64()], 0xFF000000_U32)
+    teardown(win, ren)
+}
+
+test "a screenshot saved as BMP loads back the same" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    ren.Color(255, 0, 0, 255)
+    ren.Clear()
+    ren.Color(0, 0, 255, 255)
+    ren.FillRect(10, 10, 4, 4)
+    let dir: String = Fs.MakeTempDir("zevic-sdl2-").Unwrap()
+    let file: String = Path.Join(dir, "shot.bmp")
+    ren.SaveBmp(file).Unwrap()
+    Test.True(Fs.Exists(file))
+    let tex: Sdl2.Texture = ren.LoadBmp(file).Unwrap()
+    Test.Equal(tex.Width(), 64)
+    Test.Equal(tex.Height(), 48)
+    ren.Color(0, 0, 0, 255)
+    ren.Clear()
+    tex.Draw(0, 0)
+    let px: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(px[0], 0xFFFF0000_U32)
+    Test.Equal(px[(11 * 64 + 11).ToI64()], 0xFF0000FF_U32)
+    Test.True(ren.SaveBmp(Path.Join(dir, "no/such/dir/x.bmp")).IsErr())
+    tex.Close()
+    Fs.RemoveAll(dir).Unwrap()
     teardown(win, ren)
 }
