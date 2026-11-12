@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0
+
+- `Sdl2.Image`: PNG, JPG, TIF and WEBP loading through SDL2_image; `Renderer.LoadImage(path)` returns a `Texture`
+- `Sdl2.Mixer`: sound effects, looping music, channels and volume through SDL2_mixer
+- Both satellites are loaded at run time with `SDL_LoadObject`, so programs that do not use them still need only SDL2. `ZEVIC_SDL2_IMAGE` / `ZEVIC_SDL2_MIXER` override the library path; a missing library is an error value with install instructions, not a crash
+- New examples: `image`, `mixer`
+- 9 new tests (30 in total), with tiny PNG, BMP and WAV assets in `tests/data`
+
 ## 0.2.0
 
 - `Renderer.Text`, `Sdl2.TextWidth`, `Sdl2.TextHeight`: built-in 8x8 bitmap font (ASCII), no SDL_ttf needed
