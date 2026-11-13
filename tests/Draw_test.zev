@@ -1,0 +1,421 @@
+module Sdl2DrawTest
+
+import Sdl2
+import Zevic.Env
+import Zevic.Fs
+import Zevic.Path
+import Zevic.Test
+
+// Shapes, canvases, scancodes, the frame clock and the other things added in 0.5.0.
+// Every test runs with SDL's dummy drivers: no window, no sound, same result on every OS.
+
+let Black: U32 = 0xFF000000_U32
+let White: U32 = 0xFFFFFFFF_U32
+
+fn setup() -> (Sdl2.Window, Sdl2.Renderer) {
+    Sdl2.Headless()
+    Sdl2.Init().Unwrap()
+    let win: Sdl2.Window = Sdl2.Window.Open("test", 64, 48).Unwrap()
+    let ren: Sdl2.Renderer = win.Renderer().Unwrap()
+    (win, ren)
+}
+
+fn teardown(win: Sdl2.Window, ren: Sdl2.Renderer) {
+    ren.Close()
+    win.Close()
+    Sdl2.Quit()
+}
+
+// black frame, white drawing colour
+fn blank(ren: Sdl2.Renderer) {
+    ren.Color(0, 0, 0, 255)
+    ren.Clear()
+    ren.Color(255, 255, 255, 255)
+}
+
+fn pixel(px: Array<U32>, x: I32, y: I32) -> U32 { px[(y * 64 + x).ToI64()] }
+
+fn count(px: Array<U32>, color: U32) -> I32 {
+    mut n: I32 = 0
+    mut i: I64 = 0
+    while (i < px.Len()) {
+        if (px[i] == color) { n += 1 }
+        i += 1
+    }
+    n
+}
+
+fn same(name: String, code: I32) {
+    let got: I32 = Sdl2.ScanFromName(name)
+    if (got != code) {
+        Test.Fail("scancode ${name}: SDL says ${got}, the constant is ${code}")
+    }
+}
+
+test "scancode constants are the ones SDL names" {
+    Sdl2.Headless()
+    Sdl2.Init().Unwrap()
+    same("A", Sdl2.ScanA)
+    same("B", Sdl2.ScanB)
+    same("C", Sdl2.ScanC)
+    same("D", Sdl2.ScanD)
+    same("E", Sdl2.ScanE)
+    same("F", Sdl2.ScanF)
+    same("G", Sdl2.ScanG)
+    same("H", Sdl2.ScanH)
+    same("I", Sdl2.ScanI)
+    same("J", Sdl2.ScanJ)
+    same("K", Sdl2.ScanK)
+    same("L", Sdl2.ScanL)
+    same("M", Sdl2.ScanM)
+    same("N", Sdl2.ScanN)
+    same("O", Sdl2.ScanO)
+    same("P", Sdl2.ScanP)
+    same("Q", Sdl2.ScanQ)
+    same("R", Sdl2.ScanR)
+    same("S", Sdl2.ScanS)
+    same("T", Sdl2.ScanT)
+    same("U", Sdl2.ScanU)
+    same("V", Sdl2.ScanV)
+    same("W", Sdl2.ScanW)
+    same("X", Sdl2.ScanX)
+    same("Y", Sdl2.ScanY)
+    same("Z", Sdl2.ScanZ)
+    same("1", Sdl2.Scan1)
+    same("2", Sdl2.Scan2)
+    same("3", Sdl2.Scan3)
+    same("4", Sdl2.Scan4)
+    same("5", Sdl2.Scan5)
+    same("6", Sdl2.Scan6)
+    same("7", Sdl2.Scan7)
+    same("8", Sdl2.Scan8)
+    same("9", Sdl2.Scan9)
+    same("0", Sdl2.Scan0)
+    same("Return", Sdl2.ScanReturn)
+    same("Escape", Sdl2.ScanEscape)
+    same("Backspace", Sdl2.ScanBackspace)
+    same("Tab", Sdl2.ScanTab)
+    same("Space", Sdl2.ScanSpace)
+    same("F1", Sdl2.ScanF1)
+    same("F2", Sdl2.ScanF2)
+    same("F3", Sdl2.ScanF3)
+    same("F4", Sdl2.ScanF4)
+    same("F5", Sdl2.ScanF5)
+    same("F6", Sdl2.ScanF6)
+    same("F7", Sdl2.ScanF7)
+    same("F8", Sdl2.ScanF8)
+    same("F9", Sdl2.ScanF9)
+    same("F10", Sdl2.ScanF10)
+    same("F11", Sdl2.ScanF11)
+    same("F12", Sdl2.ScanF12)
+    same("Right", Sdl2.ScanRight)
+    same("Left", Sdl2.ScanLeft)
+    same("Down", Sdl2.ScanDown)
+    same("Up", Sdl2.ScanUp)
+    same("Left Ctrl", Sdl2.ScanLCtrl)
+    same("Left Shift", Sdl2.ScanLShift)
+    same("Left Alt", Sdl2.ScanLAlt)
+    Test.Equal(Sdl2.ScanFromName("no such key"), 0)
+    Sdl2.Quit()
+}
+
+test "key names" {
+    Test.Equal(Sdl2.KeyName(Sdl2.KeyEscape), "Escape")
+    Test.Equal(Sdl2.KeyName(Sdl2.KeySpace), "Space")
+    Test.Equal(Sdl2.KeyName(Sdl2.KeyReturn), "Return")
+    Test.Equal(Sdl2.KeyName(Sdl2.KeyLeft), "Left")
+    Test.Equal(Sdl2.KeyName(97), "A")
+}
+
+test "a filled circle has the right area, centre and symmetry" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    blank(ren)
+    ren.FillCircle(32, 24, 10)
+    let px: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(pixel(px, 32, 24), White)
+    Test.Equal(pixel(px, 42, 24), White)
+    Test.Equal(pixel(px, 32, 14), White)
+    Test.Equal(pixel(px, 43, 24), Black)
+    Test.Equal(pixel(px, 32, 35), Black)
+    Test.Equal(pixel(px, 40, 32), Black)
+    // pi * 10^2 = 314
+    let n: I32 = count(px, White)
+    Test.True(n >= 300 && n <= 335)
+    // the same on both sides and above and below
+    mut d: I32 = 0
+    while (d <= 12) {
+        Test.Equal(pixel(px, 32 + d, 24), pixel(px, 32 - d, 24))
+        Test.Equal(pixel(px, 32, 24 + d), pixel(px, 32, 24 - d))
+        Test.Equal(pixel(px, 32 + d, 24 + 3), pixel(px, 32 - d, 24 - 3))
+        d += 1
+    }
+    teardown(win, ren)
+}
+
+test "a circle outline is a ring" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    blank(ren)
+    ren.Circle(32, 24, 10)
+    let px: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(pixel(px, 32, 24), Black)
+    Test.Equal(pixel(px, 32, 28), Black)
+    Test.Equal(pixel(px, 42, 24), White)
+    Test.Equal(pixel(px, 22, 24), White)
+    Test.Equal(pixel(px, 32, 14), White)
+    Test.Equal(pixel(px, 32, 34), White)
+    // every lit pixel is about 10 away from the centre, and the ring has no gaps along the axes
+    mut lit: I32 = 0
+    mut y: I32 = 0
+    while (y < 48) {
+        mut x: I32 = 0
+        while (x < 64) {
+            if (pixel(px, x, y) == White) {
+                lit += 1
+                let dx: I32 = x - 32
+                let dy: I32 = y - 24
+                let d2: I32 = dx * dx + dy * dy
+                Test.True(d2 >= 81 && d2 <= 121)
+            }
+            x += 1
+        }
+        y += 1
+    }
+    Test.True(lit >= 56 && lit <= 80)
+    teardown(win, ren)
+}
+
+test "circles of radius 0 and a negative radius" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    blank(ren)
+    ren.FillCircle(10, 10, 0)
+    ren.Circle(20, 10, 0)
+    ren.Circle(30, 10, -3)
+    ren.FillCircle(40, 10, -3)
+    let px: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(pixel(px, 10, 10), White)
+    Test.Equal(pixel(px, 20, 10), White)
+    Test.Equal(count(px, White), 2)
+    teardown(win, ren)
+}
+
+test "a filled triangle covers its inside and its corners" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    blank(ren)
+    ren.FillTriangle(10, 10, 50, 10, 30, 40)
+    let px: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(pixel(px, 30, 20), White)
+    Test.Equal(pixel(px, 10, 10), White)
+    Test.Equal(pixel(px, 50, 10), White)
+    Test.Equal(pixel(px, 30, 40), White)
+    Test.Equal(pixel(px, 5, 5), Black)
+    Test.Equal(pixel(px, 10, 40), Black)
+    Test.Equal(pixel(px, 12, 30), Black)
+    Test.Equal(pixel(px, 48, 30), Black)
+    // base 40 x height 30 / 2 = 600
+    let n: I32 = count(px, White)
+    Test.True(n >= 570 && n <= 680)
+    teardown(win, ren)
+}
+
+test "the corners can come in any order" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    blank(ren)
+    ren.FillTriangle(10, 10, 50, 10, 30, 40)
+    let a: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    blank(ren)
+    ren.FillTriangle(30, 40, 10, 10, 50, 10)
+    let b: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    blank(ren)
+    ren.FillTriangle(50, 10, 30, 40, 10, 10)
+    let c: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(count(a, White), count(b, White))
+    Test.Equal(count(a, White), count(c, White))
+    // a corner at the bottom left, so the long edge is not the one through the middle corner
+    blank(ren)
+    ren.FillTriangle(5, 40, 5, 5, 50, 40)
+    let d: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(pixel(d, 6, 38), White)
+    Test.Equal(pixel(d, 40, 38), White)
+    Test.Equal(pixel(d, 40, 10), Black)
+    Test.Equal(pixel(d, 5, 5), White)
+    teardown(win, ren)
+}
+
+test "flat and single-point triangles do not fail" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    blank(ren)
+    ren.FillTriangle(10, 10, 30, 10, 20, 10)
+    ren.FillTriangle(40, 20, 40, 20, 40, 20)
+    ren.FillTriangle(50, 5, 50, 30, 50, 15)
+    let px: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(pixel(px, 10, 10), White)
+    Test.Equal(pixel(px, 30, 10), White)
+    Test.Equal(pixel(px, 40, 20), White)
+    Test.Equal(pixel(px, 50, 5), White)
+    Test.Equal(pixel(px, 50, 30), White)
+    Test.Equal(pixel(px, 50, 31), Black)
+    teardown(win, ren)
+}
+
+test "a triangle outline leaves the inside empty" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    blank(ren)
+    ren.Triangle(10, 10, 50, 10, 30, 40)
+    let px: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(pixel(px, 10, 10), White)
+    Test.Equal(pixel(px, 50, 10), White)
+    Test.Equal(pixel(px, 30, 40), White)
+    Test.Equal(pixel(px, 30, 10), White)
+    Test.Equal(pixel(px, 30, 20), Black)
+    teardown(win, ren)
+}
+
+test "shapes honour the alpha of the drawing colour" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    blank(ren)
+    ren.Blend(1)
+    ren.Color(255, 0, 0, 128)
+    ren.FillCircle(32, 24, 8)
+    let px: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    let c: U32 = pixel(px, 32, 24)
+    // half red over black
+    Test.Equal(c >> 24, 0xFF_U32)
+    Test.True(((c >> 16) & 0xFF_U32) >= 0x7F_U32 && ((c >> 16) & 0xFF_U32) <= 0x81_U32)
+    Test.Equal(c & 0xFFFF_U32, 0_U32)
+    teardown(win, ren)
+}
+
+test "a canvas keeps what is drawn into it" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    blank(ren)
+    ren.Color(0, 255, 0, 255)
+    let canvas: Sdl2.Texture = ren.Canvas(16, 16).Unwrap()
+    Test.Equal(canvas.Width(), 16)
+    Test.Equal(canvas.Height(), 16)
+    // creating a canvas did not change the drawing colour
+    ren.FillRect(0, 0, 4, 4)
+    ren.Color(255, 0, 0, 255)
+    ren.SetTarget(canvas).Unwrap()
+    ren.FillRect(0, 0, 8, 16)
+    ren.ResetTarget()
+    // the window has not been drawn on by the canvas
+    let before: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(pixel(before, 2, 2), 0xFF00FF00_U32)
+    Test.Equal(pixel(before, 42, 12), Black)
+    canvas.Draw(40, 10)
+    let after: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(pixel(after, 42, 12), 0xFFFF0000_U32)
+    Test.Equal(pixel(after, 52, 12), Black)
+    // a second round of drawing adds to it
+    ren.SetTarget(canvas).Unwrap()
+    ren.Color(0, 0, 255, 255)
+    ren.FillRect(8, 0, 8, 16)
+    ren.ResetTarget()
+    canvas.Draw(0, 30)
+    let again: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(pixel(again, 2, 32), 0xFFFF0000_U32)
+    Test.Equal(pixel(again, 12, 32), 0xFF0000FF_U32)
+    canvas.Close()
+    teardown(win, ren)
+}
+
+test "a canvas starts transparent" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    ren.Color(10, 20, 30, 255)
+    ren.Clear()
+    let canvas: Sdl2.Texture = ren.Canvas(8, 8).Unwrap()
+    canvas.Draw(0, 0)
+    let px: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    Test.Equal(pixel(px, 3, 3), 0xFF0A141E_U32)
+    canvas.Close()
+    teardown(win, ren)
+}
+
+test "texture blend modes" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    blank(ren)
+    let tex: Sdl2.Texture = ren.TextureFromPixels([0xFF404040_U32], 1, 1).Unwrap()
+    tex.Draw(5, 5)
+    tex.Draw(5, 5)
+    tex.SetBlend(2)
+    tex.Draw(9, 5)
+    tex.Draw(9, 5)
+    let px: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    // blended opaque pixels just replace, added ones sum: 0x40 + 0x40 = 0x80
+    Test.Equal(pixel(px, 5, 5), 0xFF404040_U32)
+    Test.Equal(pixel(px, 9, 5), 0xFF808080_U32)
+    tex.Close()
+    teardown(win, ren)
+}
+
+test "the clock holds a frame rate and measures it" {
+    mut clock: Sdl2.Clock = Sdl2.Clock.New(100)
+    let first: F64 = clock.Tick()
+    Test.True(first >= 0.009)
+    let start: F64 = Sdl2.Seconds()
+    let a: F64 = clock.Tick()
+    let b: F64 = clock.Tick()
+    let c: F64 = clock.Tick()
+    let spent: F64 = Sdl2.Seconds() - start
+    Test.True(spent >= 0.028)
+    Test.True(a >= 0.009 && b >= 0.009 && c >= 0.009)
+    // not wildly slower than asked (a loaded CI machine gets generous room)
+    Test.True(spent < 0.5)
+}
+
+test "a clock with no limit only measures" {
+    mut clock: Sdl2.Clock = Sdl2.Clock.New(0)
+    let dt: F64 = clock.Tick()
+    Test.True(dt >= 0.0 && dt < 0.5)
+}
+
+test "mouse state without a mouse" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    Test.False(Sdl2.MouseHeld(Sdl2.ButtonLeft))
+    Test.False(Sdl2.MouseHeld(Sdl2.ButtonRight))
+    let (dx, dy): (I32, I32) = Sdl2.MouseDelta()
+    Test.Equal(dx, 0)
+    Test.Equal(dy, 0)
+    Sdl2.ShowCursor(false)
+    Sdl2.ShowCursor(true)
+    Test.Ok<Unit, Error>(Sdl2.RelativeMouse(false))
+    teardown(win, ren)
+}
+
+test "window icon, minimise, maximise and border" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    let red: U32 = 0xFFFF0000_U32
+    Test.Ok<Unit, Error>(win.SetIcon([red, red, red, red], 2, 2))
+    Test.Err<Unit, Error>(win.SetIcon([red, red, red], 2, 2))
+    win.SetBordered(false)
+    win.SetBordered(true)
+    win.Minimize()
+    win.Restore()
+    win.Maximize()
+    win.Restore()
+    Test.True(win.Width() > 0)
+    teardown(win, ren)
+}
+
+test "SmokeDone follows the environment" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    Env.Set("ZEVIC_SDL2_FRAMES", "0").Unwrap()
+    Env.Set("ZEVIC_SDL2_SHOT", "").Unwrap()
+    Test.False(Sdl2.SmokeDone(ren, 1000))
+    Env.Set("ZEVIC_SDL2_FRAMES", "5").Unwrap()
+    Test.False(Sdl2.SmokeDone(ren, 4))
+    Test.True(Sdl2.SmokeDone(ren, 5))
+    Test.True(Sdl2.SmokeDone(ren, 6))
+    let dir: String = Fs.MakeTempDir("zevic-sdl2-").Unwrap()
+    let file: String = Path.Join(dir, "smoke.bmp")
+    Env.Set("ZEVIC_SDL2_SHOT", file).Unwrap()
+    blank(ren)
+    Test.False(Sdl2.SmokeDone(ren, 4))
+    Test.False(Fs.Exists(file))
+    Test.True(Sdl2.SmokeDone(ren, 5))
+    Test.True(Fs.Exists(file))
+    Env.Set("ZEVIC_SDL2_FRAMES", "0").Unwrap()
+    Env.Set("ZEVIC_SDL2_SHOT", "").Unwrap()
+    Fs.RemoveAll(dir).Unwrap()
+    teardown(win, ren)
+}
