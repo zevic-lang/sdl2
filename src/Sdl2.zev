@@ -112,6 +112,25 @@ extern "C" {
     fn zsdl_perf_counter() -> CLongLong
     fn zsdl_perf_freq() -> CLongLong
     fn zsdl_message_box(win: *CVoid, kind: CInt, title: CString, msg: CString) -> CInt
+
+    fn zsdl_scancode(name: CString) -> CInt
+    fn zsdl_key_name(key: CInt) -> CString
+    fn zsdl_mouse_rel_x() -> CInt
+    fn zsdl_mouse_rel_y() -> CInt
+    fn zsdl_relative_mouse(on: CInt) -> CInt
+    fn zsdl_show_cursor(on: CInt) -> CInt
+    fn zsdl_circle(r: *CVoid, cx: CInt, cy: CInt, rad: CInt, fill: CInt) -> CInt
+    fn zsdl_triangle(r: *CVoid, x1: CInt, y1: CInt, x2: CInt, y2: CInt, x3: CInt, y3: CInt, fill: CInt) -> CInt
+    fn zsdl_canvas_new(r: *CVoid, w: CInt, h: CInt) -> *CVoid
+    fn zsdl_set_target(r: *CVoid, t: *CVoid) -> CInt
+    fn zsdl_texture_blend(t: *CVoid, mode: CInt) -> CInt
+    fn zsdl_window_icon(w: *CVoid, pixels: *U32, iw: CInt, ih: CInt) -> CInt
+    fn zsdl_window_minimize(w: *CVoid) -> CVoid
+    fn zsdl_window_maximize(w: *CVoid) -> CVoid
+    fn zsdl_window_restore(w: *CVoid) -> CVoid
+    fn zsdl_window_bordered(w: *CVoid, on: CInt) -> CVoid
+    fn zsdl_env_int(name: CString, dflt: CInt) -> CInt
+    fn zsdl_env_str(name: CString) -> CString
 }
 
 fn k(id: I32) -> I32 { zsdl_const(id.ToCInt()).ToI32() }
@@ -145,6 +164,75 @@ fn HasMod(mods: I32, mask: I32) -> Bool { (mods & mask) != 0 }
 let ButtonLeft: I32 = 1
 let ButtonMiddle: I32 = 2
 let ButtonRight: I32 = 3
+
+// Scancodes for KeyHeld: the position of a key, whatever the keyboard layout (SDL_SCANCODE_*).
+// The tests compare each one with the name SDL gives it.
+let ScanA: I32 = 4
+let ScanB: I32 = 5
+let ScanC: I32 = 6
+let ScanD: I32 = 7
+let ScanE: I32 = 8
+let ScanF: I32 = 9
+let ScanG: I32 = 10
+let ScanH: I32 = 11
+let ScanI: I32 = 12
+let ScanJ: I32 = 13
+let ScanK: I32 = 14
+let ScanL: I32 = 15
+let ScanM: I32 = 16
+let ScanN: I32 = 17
+let ScanO: I32 = 18
+let ScanP: I32 = 19
+let ScanQ: I32 = 20
+let ScanR: I32 = 21
+let ScanS: I32 = 22
+let ScanT: I32 = 23
+let ScanU: I32 = 24
+let ScanV: I32 = 25
+let ScanW: I32 = 26
+let ScanX: I32 = 27
+let ScanY: I32 = 28
+let ScanZ: I32 = 29
+let Scan1: I32 = 30
+let Scan2: I32 = 31
+let Scan3: I32 = 32
+let Scan4: I32 = 33
+let Scan5: I32 = 34
+let Scan6: I32 = 35
+let Scan7: I32 = 36
+let Scan8: I32 = 37
+let Scan9: I32 = 38
+let Scan0: I32 = 39
+let ScanReturn: I32 = 40
+let ScanEscape: I32 = 41
+let ScanBackspace: I32 = 42
+let ScanTab: I32 = 43
+let ScanSpace: I32 = 44
+let ScanF1: I32 = 58
+let ScanF2: I32 = 59
+let ScanF3: I32 = 60
+let ScanF4: I32 = 61
+let ScanF5: I32 = 62
+let ScanF6: I32 = 63
+let ScanF7: I32 = 64
+let ScanF8: I32 = 65
+let ScanF9: I32 = 66
+let ScanF10: I32 = 67
+let ScanF11: I32 = 68
+let ScanF12: I32 = 69
+let ScanRight: I32 = 79
+let ScanLeft: I32 = 80
+let ScanDown: I32 = 81
+let ScanUp: I32 = 82
+let ScanLCtrl: I32 = 224
+let ScanLShift: I32 = 225
+let ScanLAlt: I32 = 226
+
+// The scancode SDL gives a key name such as "A", "Space" or "Left"; 0 when the name is unknown.
+fn ScanFromName(name: String) -> I32 { zsdl_scancode(name.ToC()).ToI32() }
+
+// What a key is called, for a key from KeyDown: "A", "Space", "Left", "Escape", ...
+fn KeyName(key: I32) -> String { String.FromCLossy(zsdl_key_name(key.ToCInt())) }
 
 // ---- lifecycle ----
 
@@ -273,6 +361,25 @@ fn KeyHeld(scancode: I32) -> Bool { zsdl_key_down(scancode.ToCInt()).ToI32() != 
 fn MouseX() -> I32 { zsdl_mouse_x().ToI32() }
 fn MouseY() -> I32 { zsdl_mouse_y().ToI32() }
 
+// Is this mouse button (ButtonLeft, ButtonMiddle, ButtonRight) down right now?
+fn MouseHeld(button: I32) -> Bool { (zsdl_mouse_buttons().ToI32() & (1 << (button - 1))) != 0 }
+
+// How far the mouse moved since the last call to MouseDelta (x, y). Meant for RelativeMouse(true).
+fn MouseDelta() -> (I32, I32) {
+    let dx: I32 = zsdl_mouse_rel_x().ToI32()
+    (dx, zsdl_mouse_rel_y().ToI32())
+}
+
+// Relative mode: the pointer is hidden and held in the window, and only MouseDelta changes (mouse look).
+fn RelativeMouse(on: Bool) -> Result<Unit, Error> {
+    if (zsdl_relative_mouse(if (on) { 1.ToCInt() } else { 0.ToCInt() }).ToI32() != 0) {
+        return Err(fail("SDL_SetRelativeMouseMode"))
+    }
+    Ok(())
+}
+
+fn ShowCursor(on: Bool) { zsdl_show_cursor(if (on) { 1.ToCInt() } else { 0.ToCInt() }) }
+
 // ---- window ----
 
 class Window {
@@ -302,6 +409,21 @@ class Window {
     fn Show() { zsdl_window_show(this.p, 1.ToCInt()) }
     fn Hide() { zsdl_window_show(this.p, 0.ToCInt()) }
     fn Raise() { zsdl_window_raise(this.p) }
+    fn Minimize() { zsdl_window_minimize(this.p) }
+    fn Maximize() { zsdl_window_maximize(this.p) }
+    fn Restore() { zsdl_window_restore(this.p) }
+    fn SetBordered(on: Bool) { zsdl_window_bordered(this.p, if (on) { 1.ToCInt() } else { 0.ToCInt() }) }
+
+    // The icon of the window, from 0xAARRGGBB pixels. pixels.Len() must be w * h.
+    fn SetIcon(pixels: Array<U32>, w: I32, h: I32) -> Result<Unit, Error> {
+        if (pixels.Len() != w.ToI64() * h.ToI64()) {
+            return Err(Error.New(ErrorKind.Invalid, "SetIcon: expected ${w * h} pixels, got ${pixels.Len()}"))
+        }
+        if (zsdl_window_icon(this.p, pixels.Ptr(), w.ToCInt(), h.ToCInt()).ToI32() != 0) {
+            return Err(fail("SDL_SetWindowIcon"))
+        }
+        Ok(())
+    }
 
     // Borderless fullscreen at the desktop resolution (on) or back to a normal window (off).
     fn SetFullscreen(on: Bool) -> Result<Unit, Error> {
@@ -355,6 +477,38 @@ class Renderer {
     fn FillRect(x: I32, y: I32, w: I32, h: I32) {
         zsdl_fill_rect(this.p, x.ToCInt(), y.ToCInt(), w.ToCInt(), h.ToCInt())
     }
+
+    // A circle with its centre at cx,cy and radius r (a negative r draws nothing).
+    fn Circle(cx: I32, cy: I32, r: I32) { zsdl_circle(this.p, cx.ToCInt(), cy.ToCInt(), r.ToCInt(), 0.ToCInt()) }
+    fn FillCircle(cx: I32, cy: I32, r: I32) { zsdl_circle(this.p, cx.ToCInt(), cy.ToCInt(), r.ToCInt(), 1.ToCInt()) }
+
+    fn Triangle(x1: I32, y1: I32, x2: I32, y2: I32, x3: I32, y3: I32) {
+        zsdl_triangle(this.p, x1.ToCInt(), y1.ToCInt(), x2.ToCInt(), y2.ToCInt(), x3.ToCInt(), y3.ToCInt(), 0.ToCInt())
+    }
+
+    fn FillTriangle(x1: I32, y1: I32, x2: I32, y2: I32, x3: I32, y3: I32) {
+        zsdl_triangle(this.p, x1.ToCInt(), y1.ToCInt(), x2.ToCInt(), y2.ToCInt(), x3.ToCInt(), y3.ToCInt(), 1.ToCInt())
+    }
+
+    // A transparent w x h picture that you can draw into: SetTarget(canvas), draw as usual, ResetTarget(),
+    // then canvas.Draw(x, y). What was drawn stays in it from frame to frame (a paint program, a minimap).
+    fn Canvas(w: I32, h: I32) -> Result<Texture, Error> {
+        let t: *CVoid = zsdl_canvas_new(this.p, w.ToCInt(), h.ToCInt())
+        if (t == Null) {
+            return Err(fail("SDL_CreateTexture (canvas)"))
+        }
+        Ok(Texture.New(this.p, t))
+    }
+
+    // Draw into the canvas from now on; ResetTarget() goes back to the window.
+    fn SetTarget(canvas: Texture) -> Result<Unit, Error> {
+        if (zsdl_set_target(this.p, canvas.t).ToI32() != 0) {
+            return Err(fail("SDL_SetRenderTarget"))
+        }
+        Ok(())
+    }
+
+    fn ResetTarget() { zsdl_set_target(this.p, Null) }
 
     // Draws text with the built-in 8x8 font (ASCII only) in the current colour. '\n' starts a new line.
     // scale makes every font pixel scale x scale screen pixels. Other characters appear as '?'.
@@ -469,6 +623,9 @@ class Texture {
     fn Width() -> I32 { zsdl_texture_w(this.t).ToI32() }
     fn Height() -> I32 { zsdl_texture_h(this.t).ToI32() }
 
+    // How the texture mixes with what is behind it: 0 none, 1 blend (the default), 2 add (light, sparks), 3 multiply.
+    fn SetBlend(mode: I32) { zsdl_texture_blend(this.t, mode.ToCInt()) }
+
     // Tint and opacity for later draws: 255,255,255,255 is "as is".
     fn SetColor(r: I32, g: I32, b: I32, a: I32) {
         zsdl_texture_color(this.t, r.ToCInt(), g.ToCInt(), b.ToCInt(), a.ToCInt())
@@ -494,4 +651,58 @@ class Texture {
         zsdl_texture_copy(this.r, this.t, sx.ToCInt(), sy.ToCInt(), sw.ToCInt(), sh.ToCInt(),
             x.ToCInt(), y.ToCInt(), w.ToCInt(), h.ToCInt(), 0.0.ToCDouble(), 0.ToCInt())
     }
+}
+
+// ---- frame clock ----
+
+// Holds a program to a frame rate and tells how long each frame took.
+//
+//     mut clock: Sdl2.Clock = Sdl2.Clock.New(60)
+//     while (running) {
+//         let dt: F64 = clock.Tick()   // seconds since the last Tick, after waiting for the frame to be due
+//         ...
+//     }
+class Clock {
+    frame: F64 = 0.0
+    last: F64 = 0.0
+
+    // fps <= 0 means no limit (Tick only measures).
+    fn Init(fps: I32) {
+        this.frame = if (fps > 0) { 1.0 / fps.ToF64() } else { 0.0 }
+        this.last = Seconds()
+    }
+
+    // Waits until a frame has passed since the last Tick, and returns the seconds that did pass.
+    // Waiting is a sleep for most of the time and a short spin for the rest, so the pace is steady.
+    mut fn Tick() -> F64 {
+        mut now: F64 = Seconds()
+        let due: F64 = this.last + this.frame
+        while (now < due) {
+            let left: F64 = due - now
+            if (left > 0.002) {
+                Delay((left * 1000.0 - 1.0).ToI32())
+            }
+            now = Seconds()
+        }
+        let dt: F64 = now - this.last
+        this.last = now
+        dt
+    }
+}
+
+// ---- smoke test for programs ----
+
+// For examples and CI. When the environment variable ZEVIC_SDL2_FRAMES=N is set, this returns true once `frame`
+// reaches N, so the main loop can end by itself. If ZEVIC_SDL2_SHOT=path.bmp is set too, that frame is saved
+// there first. Call it after drawing and before Present(); without the variables it always returns false.
+fn SmokeDone(ren: Renderer, frame: I32) -> Bool {
+    let n: I32 = zsdl_env_int("ZEVIC_SDL2_FRAMES".ToC(), 0.ToCInt()).ToI32()
+    if (n <= 0 || frame < n) {
+        return false
+    }
+    let path: String = String.FromCLossy(zsdl_env_str("ZEVIC_SDL2_SHOT".ToC()))
+    if (!path.IsEmpty()) {
+        ren.SaveBmp(path).Unwrap()
+    }
+    true
 }

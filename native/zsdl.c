@@ -336,3 +336,137 @@ int zsdl_save_bmp(void *r, const char *path) {
     SDL_FreeSurface(s);
     return rc;
 }
+
+// =====================================================================
+// v0.5 additions: shapes, mouse state, render targets, window extras, a smoke-test hook.
+// =====================================================================
+
+// ---- key names (the tests use them to check the scancode constants against SDL's own table) ----
+int zsdl_scancode(const char *name) { return (int)SDL_GetScancodeFromName(name); }
+const char *zsdl_key_name(int key) { return SDL_GetKeyName((SDL_Keycode)key); }
+
+// ---- mouse ----
+static int rel_dx = 0, rel_dy = 0;
+// Movement since the last call; one call reads both numbers (zsdl_mouse_rel_y returns the second).
+int zsdl_mouse_rel_x(void) { rel_dx = 0; rel_dy = 0; SDL_GetRelativeMouseState(&rel_dx, &rel_dy); return rel_dx; }
+int zsdl_mouse_rel_y(void) { return rel_dy; }
+int zsdl_relative_mouse(int on) { return SDL_SetRelativeMouseMode(on ? SDL_TRUE : SDL_FALSE); }
+int zsdl_show_cursor(int on) { return SDL_ShowCursor(on ? SDL_ENABLE : SDL_DISABLE); }
+
+// ---- shapes ----
+static int hline(SDL_Renderer *r, int x1, int x2, int y) { return SDL_RenderDrawLine(r, x1, y, x2, y); }
+
+int zsdl_circle(void *rr, int cx, int cy, int rad, int fill) {
+    SDL_Renderer *r = (SDL_Renderer *)rr;
+    if (rad < 0) return -1;
+    if (fill) {
+        for (int dy = -rad; dy <= rad; dy++) {
+            int dx = (int)SDL_sqrt((double)rad * rad - (double)dy * dy + 0.5);
+            if (hline(r, cx - dx, cx + dx, cy + dy) != 0) return -1;
+        }
+        return 0;
+    }
+    // midpoint circle: eight symmetric points per step, each point drawn once
+    int cap = 8 * (rad + 1);
+    SDL_Point *pts = (SDL_Point *)malloc(sizeof(SDL_Point) * (size_t)cap);
+    if (!pts) return -1;
+    int n = 0, x = rad, y = 0, err = 1 - rad;
+    while (x >= y) {
+        int px[8] = {cx + x, cx - x, cx + x, cx - x, cx + y, cx - y, cx + y, cx - y};
+        int py[8] = {cy + y, cy + y, cy - y, cy - y, cy + x, cy + x, cy - x, cy - x};
+        for (int i = 0; i < 8; i++) {
+            int dup = 0;                                     // on an axis or a diagonal some of the eight coincide
+            for (int j = 0; j < i && !dup; j++) dup = px[i] == px[j] && py[i] == py[j];
+            if (dup) continue;
+            pts[n].x = px[i];
+            pts[n].y = py[i];
+            n++;
+        }
+        y++;
+        if (err < 0) err += 2 * y + 1;
+        else { x--; err += 2 * (y - x) + 1; }
+    }
+    int rc = n > 0 ? SDL_RenderDrawPoints(r, pts, n) : 0;
+    free(pts);
+    return rc;
+}
+
+int zsdl_triangle(void *rr, int x1, int y1, int x2, int y2, int x3, int y3, int fill) {
+    SDL_Renderer *r = (SDL_Renderer *)rr;
+    if (!fill) {
+        if (SDL_RenderDrawLine(r, x1, y1, x2, y2) != 0) return -1;
+        if (SDL_RenderDrawLine(r, x2, y2, x3, y3) != 0) return -1;
+        return SDL_RenderDrawLine(r, x3, y3, x1, y1);
+    }
+    // order the corners by y, then fill row by row between the long edge and the two short ones
+    int t;
+    if (y1 > y2) { t = x1; x1 = x2; x2 = t; t = y1; y1 = y2; y2 = t; }
+    if (y2 > y3) { t = x2; x2 = x3; x3 = t; t = y2; y2 = y3; y3 = t; }
+    if (y1 > y2) { t = x1; x1 = x2; x2 = t; t = y1; y1 = y2; y2 = t; }
+    if (y1 == y3) {                                          // flat: one row
+        int lo = x1 < x2 ? x1 : x2; lo = lo < x3 ? lo : x3;
+        int hi = x1 > x2 ? x1 : x2; hi = hi > x3 ? hi : x3;
+        return hline(r, lo, hi, y1);
+    }
+    for (int y = y1; y <= y3; y++) {
+        long long xa = x1 + (long long)(x3 - x1) * (y - y1) / (y3 - y1);
+        long long xb;
+        if (y < y2) xb = x1 + (long long)(x2 - x1) * (y - y1) / (y2 - y1);
+        else if (y3 == y2) xb = x2;
+        else xb = x2 + (long long)(x3 - x2) * (y - y2) / (y3 - y2);
+        int lo = (int)(xa < xb ? xa : xb), hi = (int)(xa < xb ? xb : xa);
+        if (hline(r, lo, hi, y) != 0) return -1;
+    }
+    return 0;
+}
+
+// ---- render targets: a texture you can draw into, and back to the window ----
+void *zsdl_canvas_new(void *rr, int w, int h) {
+    SDL_Renderer *r = (SDL_Renderer *)rr;
+    SDL_Texture *t = SDL_CreateTexture(r, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, w, h);
+    if (!t) return NULL;
+    SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND);
+    // a new texture holds nothing defined: make it transparent
+    SDL_Texture *old = SDL_GetRenderTarget(r);
+    Uint8 cr, cg, cb, ca;
+    SDL_BlendMode bm;
+    SDL_GetRenderDrawColor(r, &cr, &cg, &cb, &ca);
+    SDL_GetRenderDrawBlendMode(r, &bm);
+    SDL_SetRenderTarget(r, t);
+    SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
+    SDL_SetRenderDrawColor(r, 0, 0, 0, 0);
+    SDL_RenderClear(r);
+    SDL_SetRenderDrawBlendMode(r, bm);
+    SDL_SetRenderDrawColor(r, cr, cg, cb, ca);
+    SDL_SetRenderTarget(r, old);
+    return t;
+}
+int zsdl_set_target(void *r, void *t) { return SDL_SetRenderTarget((SDL_Renderer *)r, (SDL_Texture *)t); }
+int zsdl_texture_blend(void *t, int mode) {
+    SDL_BlendMode m = mode == 1 ? SDL_BLENDMODE_BLEND : mode == 2 ? SDL_BLENDMODE_ADD
+                    : mode == 3 ? SDL_BLENDMODE_MOD : SDL_BLENDMODE_NONE;
+    return SDL_SetTextureBlendMode((SDL_Texture *)t, m);
+}
+
+// ---- window extras ----
+int zsdl_window_icon(void *w, const void *pixels, int iw, int ih) {
+    SDL_Surface *s = SDL_CreateRGBSurfaceWithFormatFrom((void *)pixels, iw, ih, 32, iw * 4, SDL_PIXELFORMAT_ARGB8888);
+    if (!s) return -1;
+    SDL_SetWindowIcon((SDL_Window *)w, s);   // SDL copies the icon
+    SDL_FreeSurface(s);
+    return 0;
+}
+void zsdl_window_minimize(void *w) { SDL_MinimizeWindow((SDL_Window *)w); }
+void zsdl_window_maximize(void *w) { SDL_MaximizeWindow((SDL_Window *)w); }
+void zsdl_window_restore(void *w) { SDL_RestoreWindow((SDL_Window *)w); }
+void zsdl_window_bordered(void *w, int on) { SDL_SetWindowBordered((SDL_Window *)w, on ? SDL_TRUE : SDL_FALSE); }
+
+// ---- smoke-test hook for examples: ZEVIC_SDL2_FRAMES=N makes a program end after N frames ----
+int zsdl_env_int(const char *name, int dflt) {
+    const char *v = SDL_getenv(name);
+    return v && *v ? atoi(v) : dflt;
+}
+const char *zsdl_env_str(const char *name) {
+    const char *v = SDL_getenv(name);
+    return v ? v : "";
+}
