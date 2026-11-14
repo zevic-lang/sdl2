@@ -52,9 +52,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev clang
 
+      # Homebrew is not on the search paths of clang (on Apple silicon it lives in /opt/homebrew). SDL2_image,
+      # SDL2_mixer and SDL2_ttf are loaded at run time, so their files are named with the ZEVIC_SDL2_* variables.
       - name: Install SDL2 (macOS)
         if: runner.os == 'macOS'
-        run: brew install sdl2 sdl2_image sdl2_mixer sdl2_ttf
+        run: |
+          brew install sdl2 sdl2_image sdl2_mixer sdl2_ttf
+          P="$(brew --prefix)"
+          {
+            echo "C_INCLUDE_PATH=$P/include"
+            echo "LIBRARY_PATH=$P/lib"
+            echo "ZEVIC_SDL2_IMAGE=$P/lib/libSDL2_image.dylib"
+            echo "ZEVIC_SDL2_MIXER=$P/lib/libSDL2_mixer.dylib"
+            echo "ZEVIC_SDL2_TTF=$P/lib/libSDL2_ttf.dylib"
+          } >> "$GITHUB_ENV"
 
       - name: Build zevic
         run: make -C zevic
@@ -108,6 +119,12 @@ jobs:
           build/zevic.exe tools/zevfmt/src/*.zev -o build/zevfmt.exe
           build/zevpm.exe --version
 
+      # clang finds the Visual Studio and Windows SDK folders by itself, but only while the LIB variable is not set;
+      # this action sets INCLUDE, LIB and PATH the way a "Developer Command Prompt" does, and the SDL2 folders are
+      # added to them below
+      - name: Set up the Visual C++ environment
+        uses: ilammy/msvc-dev-cmd@v1.13.0
+
       # the official packages for Visual C++ have the import libraries and the DLLs; their headers lie directly
       # in include/, and the shim includes <SDL2/SDL.h>, so they are copied into an SDL2 folder
       - name: Get the SDL2 development files
@@ -129,9 +146,8 @@ jobs:
           done
           ls "$D/lib" "$D/bin"
           {
-            echo "C_INCLUDE_PATH=$(cygpath -w "$D/include")"
-            echo "LIB=$(cygpath -w "$D/lib")"
-            echo "LIBRARY_PATH=$(cygpath -w "$D/lib")"
+            echo "INCLUDE=$(cygpath -w "$D/include");$INCLUDE"
+            echo "LIB=$(cygpath -w "$D/lib");$LIB"
           } >> "$GITHUB_ENV"
           cygpath -w "$D/bin" >> "$GITHUB_PATH"
 
