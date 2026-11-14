@@ -1,0 +1,176 @@
+module Main
+
+import Sdl2
+import Zevic.Console
+import Zevic.Math
+
+// A small paint program on a canvas texture (what is drawn into a canvas stays there).
+//   left button   paint            right button   erase
+//   wheel         brush size       click a swatch, or keys 1-8, for a colour
+//   C             clear            S              save paint.bmp
+//   Escape        quit
+
+let BarHeight: I32 = 44
+let Swatches: I32 = 8
+
+fn swatch(i: I32) -> (I32, I32, I32) {
+    if (i == 0) { return (20, 20, 20) }
+    if (i == 1) { return (235, 235, 235) }
+    if (i == 2) { return (230, 60, 60) }
+    if (i == 3) { return (245, 160, 40) }
+    if (i == 4) { return (245, 225, 70) }
+    if (i == 5) { return (70, 190, 90) }
+    if (i == 6) { return (60, 130, 240) }
+    (170, 90, 220)
+}
+
+fn absI(v: I32) -> I32 { if (v < 0) { 0 - v } else { v } }
+
+// A line of round dabs from (x0, y0) to (x1, y1) on the canvas. Erasing writes transparent pixels.
+fn stroke(ren: Sdl2.Renderer, canvas: Sdl2.Texture, x0: I32, y0: I32, x1: I32, y1: I32, size: I32, erase: Bool, color: I32) {
+    ren.SetTarget(canvas).Unwrap()
+    if (erase) {
+        ren.Color(0, 0, 0, 0)
+    } else {
+        let (r, g, b): (I32, I32, I32) = swatch(color)
+        ren.Color(r, g, b, 255)
+    }
+    let dx: I32 = x1 - x0
+    let dy: I32 = y1 - y0
+    let steps: I32 = if (absI(dx) > absI(dy)) { absI(dx) } else { absI(dy) }
+    if (steps == 0) {
+        ren.FillCircle(x0, y0, size)
+    } else {
+        mut i: I32 = 0
+        while (i <= steps) {
+            ren.FillCircle(x0 + dx * i / steps, y0 + dy * i / steps, size)
+            i += 1
+        }
+    }
+    ren.ResetTarget()
+}
+
+fn clearCanvas(ren: Sdl2.Renderer, canvas: Sdl2.Texture) {
+    ren.SetTarget(canvas).Unwrap()
+    ren.Color(0, 0, 0, 0)
+    ren.Clear()
+    ren.ResetTarget()
+}
+
+fn Main() {
+    Sdl2.Init().Unwrap()
+    defer Sdl2.Quit()
+    let win: Sdl2.Window = Sdl2.Window.Open("paint", 640, 444).Unwrap()
+    defer win.Close()
+    let ren: Sdl2.Renderer = win.Renderer().Unwrap()
+    defer ren.Close()
+    let pump: Sdl2.EventPump = Sdl2.EventPump.New()
+    defer pump.Close()
+    let canvas: Sdl2.Texture = ren.Canvas(640, 400).Unwrap()
+    defer canvas.Close()
+    clearCanvas(ren, canvas)
+
+    mut color: I32 = 2
+    mut size: I32 = 6
+    mut drawing: Bool = false
+    mut erasing: Bool = false
+    mut lastX: I32 = 0
+    mut lastY: I32 = 0
+
+    // something to start with, so that the canvas is not blank: a spiral that changes colour
+    mut k: I32 = 0
+    mut px: I32 = 320
+    mut py: I32 = 200
+    while (k < 160) {
+        let a: F64 = k.ToF64() * 0.22
+        let r: F64 = 6.0 + k.ToF64() * 1.1
+        let nx: I32 = 320 + (r * Math.Cos(a)).ToI32()
+        let ny: I32 = 200 + (r * Math.Sin(a) * 0.8).ToI32()
+        stroke(ren, canvas, px, py, nx, ny, 3 + k / 40, false, 2 + (k / 20) % 6)
+        px = nx
+        py = ny
+        k += 1
+    }
+
+    mut clock: Sdl2.Clock = Sdl2.Clock.New(60)
+    mut frame: I32 = 0
+    mut running: Bool = true
+    while (running) {
+        while (true) {
+            match (pump.Poll()) {
+                Some(ev) => match (ev) {
+                    Sdl2.Event.Quit => { running = false },
+                    Sdl2.Event.KeyDown(key, _) => {
+                        if (key == Sdl2.KeyEscape) { running = false }
+                        // the digit keys are their ASCII codes
+                        if (key >= 49 && key <= 48 + Swatches) { color = key - 49 }
+                        let name: String = Sdl2.KeyName(key)
+                        if (name == "C") { clearCanvas(ren, canvas) }
+                        if (name == "S") {
+                            ren.SaveBmp("paint.bmp").Unwrap()
+                            Console.Println("saved paint.bmp")
+                        }
+                    },
+                    Sdl2.Event.MouseDown(button, x, y) => {
+                        if (y < BarHeight && button == Sdl2.ButtonLeft) {
+                            let i: I32 = (x - 4) / 40
+                            if (i >= 0 && i < Swatches) { color = i }
+                        } else {
+                            drawing = true
+                            erasing = button == Sdl2.ButtonRight
+                            lastX = x
+                            lastY = y - BarHeight
+                            stroke(ren, canvas, lastX, lastY, lastX, lastY, size, erasing, color)
+                        }
+                    },
+                    Sdl2.Event.MouseMove(x, y) => {
+                        if (drawing) {
+                            stroke(ren, canvas, lastX, lastY, x, y - BarHeight, size, erasing, color)
+                            lastX = x
+                            lastY = y - BarHeight
+                        }
+                    },
+                    Sdl2.Event.MouseUp(_, _, _) => { drawing = false },
+                    Sdl2.Event.Wheel(_, dy) => {
+                        size += dy
+                        if (size < 1) { size = 1 }
+                        if (size > 40) { size = 40 }
+                    },
+                    _ => {},
+                },
+                None => break,
+            }
+        }
+
+        // the paper, then the canvas on it, then the bar
+        ren.Color(250, 248, 240, 255)
+        ren.Clear()
+        canvas.Draw(0, BarHeight)
+        ren.Color(36, 38, 48, 255)
+        ren.FillRect(0, 0, 640, BarHeight)
+        mut i: I32 = 0
+        while (i < Swatches) {
+            let (r, g, b): (I32, I32, I32) = swatch(i)
+            ren.Color(r, g, b, 255)
+            ren.FillRect(4 + i * 40, 6, 32, 32)
+            if (i == color) {
+                ren.Color(255, 255, 255, 255)
+                ren.Rect(2 + i * 40, 4, 36, 36)
+            }
+            i += 1
+        }
+        // the brush as it is now
+        let (cr, cg, cb): (I32, I32, I32) = swatch(color)
+        ren.Color(cr, cg, cb, 255)
+        ren.FillCircle(380, 22, size)
+        ren.Color(255, 255, 255, 255)
+        ren.Circle(380, 22, size + 2)
+        ren.Color(170, 170, 170, 255)
+        ren.Text(420, 8, "wheel: size ${size}\nC clear  S save", 1)
+
+        if (Sdl2.SmokeDone(ren, frame)) { break }
+        ren.Present()
+        clock.Tick()
+        frame += 1
+    }
+}
