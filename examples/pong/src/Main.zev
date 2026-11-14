@@ -1,0 +1,168 @@
+module Main
+
+import Sdl2
+import Zevic.Console
+
+// Pong. W / S or the arrow keys move the left paddle; the right paddle is the computer.
+// Until you press a key the computer plays both sides. First to 7 wins; Space starts again. Escape quits.
+
+let W: I32 = 640
+let H: I32 = 400
+let PadW: I32 = 10
+let PadH: I32 = 64
+let Ball: I32 = 10
+let WinScore: I32 = 7
+
+// Moves a paddle (its top edge y) towards the ball, at most `speed` a frame, with a little dead zone so it does not shake.
+fn follow(padY: F64, ballY: F64, speed: F64) -> F64 {
+    let target: F64 = ballY - (PadH / 2).ToF64()
+    let d: F64 = target - padY
+    let step: F64 = if (d > speed) { speed } else if (d < 0.0 - speed) { 0.0 - speed } else { d }
+    let y: F64 = if (d > 4.0 || d < -4.0) { padY + step } else { padY }
+    if (y < 0.0) { return 0.0 }
+    let low: F64 = (H - PadH).ToF64()
+    if (y > low) { return low }
+    y
+}
+
+fn centered(ren: Sdl2.Renderer, text: String, y: I32, scale: I32) {
+    ren.Text((W - Sdl2.TextWidth(text, scale)) / 2, y, text, scale)
+}
+
+fn Main() {
+    Sdl2.Init().Unwrap()
+    defer Sdl2.Quit()
+    let win: Sdl2.Window = Sdl2.Window.Open("pong", W, H).Unwrap()
+    defer win.Close()
+    let ren: Sdl2.Renderer = win.Renderer().Unwrap()
+    defer ren.Close()
+    let pump: Sdl2.EventPump = Sdl2.EventPump.New()
+    defer pump.Close()
+
+    mut leftY: F64 = ((H - PadH) / 2).ToF64()
+    mut rightY: F64 = leftY
+    mut bx: F64 = (W / 2).ToF64()
+    mut by: F64 = (H / 2).ToF64()
+    mut vx: F64 = 4.0
+    mut vy: F64 = 2.0
+    mut leftScore: I32 = 0
+    mut rightScore: I32 = 0
+    mut human: Bool = false
+    mut serveWait: I32 = 45
+    mut over: Bool = false
+    mut hits: I32 = 0
+
+    mut clock: Sdl2.Clock = Sdl2.Clock.New(60)
+    mut frame: I32 = 0
+    mut running: Bool = true
+    while (running) {
+        while (true) {
+            match (pump.Poll()) {
+                Some(ev) => match (ev) {
+                    Sdl2.Event.Quit => { running = false },
+                    Sdl2.Event.KeyDown(key, _) => {
+                        if (key == Sdl2.KeyEscape) { running = false }
+                        if (key == Sdl2.KeySpace && over) {
+                            over = false
+                            leftScore = 0
+                            rightScore = 0
+                            serveWait = 45
+                        }
+                    },
+                    _ => {},
+                },
+                None => break,
+            }
+        }
+
+        // the left paddle: the player, or the computer until the player moves
+        let up: Bool = Sdl2.KeyHeld(Sdl2.ScanW) || Sdl2.KeyHeld(Sdl2.ScanUp)
+        let down: Bool = Sdl2.KeyHeld(Sdl2.ScanS) || Sdl2.KeyHeld(Sdl2.ScanDown)
+        if (up || down) { human = true }
+        if (human) {
+            if (up) { leftY -= 6.0 }
+            if (down) { leftY += 6.0 }
+            if (leftY < 0.0) { leftY = 0.0 }
+            if (leftY > (H - PadH).ToF64()) { leftY = (H - PadH).ToF64() }
+        } else {
+            leftY = follow(leftY, by, 4.4)
+        }
+
+        if (!over) {
+            rightY = follow(rightY, by, 4.0)
+            if (serveWait > 0) {
+                serveWait -= 1
+            } else {
+                bx += vx
+                by += vy
+                if (by < 0.0) { by = 0.0 - by; vy = 0.0 - vy }
+                if (by > (H - Ball).ToF64()) { by = 2.0 * (H - Ball).ToF64() - by; vy = 0.0 - vy }
+
+                // left paddle: its face is at x = 24 + PadW
+                let lx: F64 = (24 + PadW).ToF64()
+                if (vx < 0.0 && bx <= lx && bx >= lx - 12.0 && by + Ball.ToF64() >= leftY && by <= leftY + PadH.ToF64()) {
+                    vx = 0.0 - vx * 1.06
+                    vy = vy + ((by + 5.0) - (leftY + 32.0)) * 0.12
+                    bx = lx
+                    hits += 1
+                }
+                // right paddle: its face is at x = W - 24 - PadW
+                let rx: F64 = (W - 24 - PadW - Ball).ToF64()
+                if (vx > 0.0 && bx >= rx && bx <= rx + 12.0 && by + Ball.ToF64() >= rightY && by <= rightY + PadH.ToF64()) {
+                    vx = 0.0 - vx * 1.06
+                    vy = vy + ((by + 5.0) - (rightY + 32.0)) * 0.12
+                    bx = rx
+                    hits += 1
+                }
+                if (vx > 10.0) { vx = 10.0 }
+                if (vx < -10.0) { vx = -10.0 }
+                if (vy > 7.0) { vy = 7.0 }
+                if (vy < -7.0) { vy = -7.0 }
+
+                // a point
+                if (bx < -Ball.ToF64() || bx > W.ToF64()) {
+                    if (bx < 0.0) { rightScore += 1 } else { leftScore += 1 }
+                    let toRight: Bool = bx < 0.0
+                    bx = (W / 2).ToF64()
+                    by = (H / 2).ToF64()
+                    vx = if (toRight) { -4.0 } else { 4.0 }
+                    vy = if (frame % 2 == 0) { 2.0 } else { -2.0 }
+                    serveWait = 45
+                    if (leftScore >= WinScore || rightScore >= WinScore) { over = true }
+                }
+            }
+        }
+
+        ren.Color(12, 14, 24, 255)
+        ren.Clear()
+        ren.Color(60, 64, 90, 255)
+        mut y: I32 = 0
+        while (y < H) {
+            ren.FillRect(W / 2 - 2, y, 4, 12)
+            y += 24
+        }
+        ren.Color(235, 235, 235, 255)
+        ren.FillRect(24, leftY.ToI32(), PadW, PadH)
+        ren.FillRect(W - 24 - PadW, rightY.ToI32(), PadW, PadH)
+        ren.FillRect(bx.ToI32(), by.ToI32(), Ball, Ball)
+        ren.Text(W / 2 - 100 - Sdl2.TextWidth("${leftScore}", 5), 20, "${leftScore}", 5)
+        ren.Text(W / 2 + 100, 20, "${rightScore}", 5)
+        ren.Color(140, 140, 160, 255)
+        if (over) {
+            ren.Color(255, 220, 90, 255)
+            centered(ren, if (leftScore > rightScore) { "left wins" } else { "right wins" }, 170, 4)
+            ren.Color(140, 140, 160, 255)
+            centered(ren, "Space: play again", 220, 1)
+        } else if (!human) {
+            centered(ren, "W / S or the arrow keys to play", H - 24, 1)
+        }
+
+        if (Sdl2.SmokeDone(ren, frame)) {
+            Console.Println("score ${leftScore}:${rightScore}, ${hits} hits")
+            break
+        }
+        ren.Present()
+        clock.Tick()
+        frame += 1
+    }
+}
