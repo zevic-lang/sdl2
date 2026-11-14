@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.0
+
+- Shapes: `Renderer.Circle`, `FillCircle`, `Triangle`, `FillTriangle` (done in the C shim in one pass)
+- Render targets: `Renderer.Canvas(w, h)`, `SetTarget(canvas)`, `ResetTarget()`: a texture you draw into, whose contents stay from frame to frame. `Texture.SetBlend(mode)` (none, blend, add, multiply)
+- Input: `Scan*` constants for `KeyHeld` (letters, digits, F1 to F12, arrows, Space, Return, Escape, Tab, Backspace, Left Shift / Ctrl / Alt), so programs no longer need the raw numbers; `ScanFromName`, `KeyName`, `MouseHeld`, `MouseDelta`, `RelativeMouse`, `ShowCursor`
+- Window: `SetIcon`, `Minimize`, `Maximize`, `Restore`, `SetBordered`
+- `Clock`: holds a frame rate and returns the seconds each frame took
+- `SmokeDone`: `ZEVIC_SDL2_FRAMES=N` ends a program after N frames and `ZEVIC_SDL2_SHOT=file.bmp` saves the last one, so examples can be run without a window and checked
+- Six new examples: `shapes`, `plasma`, `paint`, `particles`, `pong`, `snake`
+- 19 new tests (62 in total). The scancode constants are compared with the names SDL gives them, shapes are checked pixel by pixel
+- Windows: CI now builds and tests on a real Windows machine with the official Visual C++ SDL2 packages, besides the mingw build run under Wine; `scripts/windows-check.sh` also runs the new examples and checks their screenshots
+- CI: zevic is pinned to a release (v0.4.1) instead of the newest commit, `actions/checkout@v7`, and a push to `main` that passes everything releases the version in `zevic.toml` when it has no tag yet
+
 ## 0.4.0
 
 - `Sdl2.Ttf`: TrueType / OpenType text through SDL2_ttf, loaded at run time like Image and Mixer. Sizes, bold / italic / underline / strikethrough, measuring, word wrap, UTF-8 (Japanese with a font that has the glyphs); text comes back as pixels or as a ready `Texture`

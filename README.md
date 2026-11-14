@@ -7,7 +7,7 @@ SDL2 bindings for [Zevic](https://github.com/zevic-lang/zevic). A thin C shim (`
 Install the SDL2 development files for your system, then:
 
 ```
-zevpm get zevic-lang/sdl2@v0.4.0
+zevpm get zevic-lang/sdl2@v0.5.0
 ```
 
 ```
@@ -79,12 +79,12 @@ Close what you open with `defer x.Close()`; there are no finalizers.
 **Sdl2**
 - Lifecycle and info: `Init`, `Quit`, `Headless`, `PixelArt`, `Version`, `DisplaySize`
 - Text size: `TextWidth`, `TextHeight` (for the built-in 8x8 font used by `Renderer.Text`)
-- Time: `Ticks`, `Seconds`, `Delay`
-- Input state: `KeyHeld(scancode)`, `MouseX`, `MouseY`, `ModState`, `HasMod`, `TextInput(on)`; constants `Key*`, `Mod*`, `Button*`
-- Other: `ClipboardText`, `SetClipboardText`, `MessageBox`, `RequestQuit`
-- `Window.Open(title, w, h)`: `Close`, `SetTitle`, `Width`, `Height`, `SetSize`, `SetMinSize`, `SetPosition`, `X`, `Y`, `SetResizable`, `SetFullscreen`, `Show`, `Hide`, `Raise`, `Renderer()`
-- `Renderer`: `Color`, `Clear`, `Present`, `Point`, `Line`, `Rect`, `FillRect`, `Text`, `SaveBmp` (screenshot), `Blend`, `SetLogicalSize`, `SetClip`, `ClearClip`, `OutputWidth`, `OutputHeight`, `ReadPixels`, `TextureFromPixels`, `LoadBmp`, `Framebuffer`
-- `Texture`: `Width`, `Height`, `SetColor`, `Draw`, `DrawScaled`, `DrawEx(angle, flip)`, `DrawPart`
+- Time: `Ticks`, `Seconds`, `Delay`; `Clock.New(fps)` with `Tick()` holds a frame rate and returns the seconds of the frame (call it on a `mut` clock)
+- Input state: `KeyHeld(scancode)`, `MouseX`, `MouseY`, `MouseHeld(button)`, `MouseDelta()`, `RelativeMouse(on)`, `ShowCursor(on)`, `ModState`, `HasMod`, `TextInput(on)`; constants `Key*` (for `KeyDown`), `Scan*` (for `KeyHeld`: `Scan0` to `Scan9`, `ScanA` to `ScanZ`, `ScanF1` to `ScanF12`, the arrows, `ScanSpace`, `ScanReturn`, `ScanEscape`, `ScanTab`, `ScanBackspace`, `ScanLShift`, `ScanLCtrl`, `ScanLAlt`), `Mod*`, `Button*`; `KeyName(key)` and `ScanFromName(name)`
+- Other: `ClipboardText`, `SetClipboardText`, `MessageBox`, `RequestQuit`, `SmokeDone(ren, frame)` (ends an example after `ZEVIC_SDL2_FRAMES` frames and saves a screenshot to `ZEVIC_SDL2_SHOT`; CI uses it)
+- `Window.Open(title, w, h)`: `Close`, `SetTitle`, `Width`, `Height`, `SetSize`, `SetMinSize`, `SetPosition`, `X`, `Y`, `SetResizable`, `SetFullscreen`, `SetBordered`, `Show`, `Hide`, `Raise`, `Minimize`, `Maximize`, `Restore`, `SetIcon(pixels, w, h)`, `Renderer()`
+- `Renderer`: `Color`, `Clear`, `Present`, `Point`, `Line`, `Rect`, `FillRect`, `Circle`, `FillCircle`, `Triangle`, `FillTriangle`, `Text`, `SaveBmp` (screenshot), `Blend`, `SetLogicalSize`, `SetClip`, `ClearClip`, `OutputWidth`, `OutputHeight`, `ReadPixels`, `TextureFromPixels`, `LoadBmp`, `Framebuffer`, `Canvas(w, h)` with `SetTarget(canvas)` and `ResetTarget()` (draw into a texture; what is drawn stays)
+- `Texture`: `Width`, `Height`, `SetColor`, `SetBlend(mode)` (0 none, 1 blend, 2 add, 3 multiply), `Draw`, `DrawScaled`, `DrawEx(angle, flip)`, `DrawPart`
 - `Framebuffer.Draw(Array<U32>)` with 0xAARRGGBB pixels
 - `EventPump.Poll()` gives `Option<Event>`: `Quit`, `KeyDown(key, mods)`, `KeyUp`, `TextInput(text)`, `MouseMove`, `MouseDown(button, x, y)`, `MouseUp`, `Wheel(dx, dy)`, `Resized(w, h)`, `Focus(on)`, `PadDown(id, button)`, `PadUp`, `PadAdded`, `PadRemoved`, `Other(type)`
 
@@ -114,11 +114,19 @@ Every example in `examples/` is its own zevpm package that depends on this one b
 | `image` | PNG with alpha through SDL2_image |
 | `mixer` | sound effects and music through SDL2_mixer |
 | `ttf` | TrueType text, styles, wrapping and Japanese through SDL2_ttf |
+| `shapes` | circles and triangles, `Clock` |
+| `plasma` | a `Framebuffer` filled pixel by pixel, scaled up |
+| `paint` | a canvas that keeps the strokes, mouse buttons and wheel, an eraser, screenshots |
+| `particles` | additive blending, tinted sprites, following the mouse |
+| `pong` | a game with `KeyHeld` and a computer player |
+| `snake` | a game with `KeyName` and a computer player that avoids walls and itself |
 
 ```
 cd examples/sprites
 zevpm run
 ```
+
+`pong` and `snake` play themselves until you press a key. Every example that opens a window can be run without one for a few frames, which is how CI checks them: `SDL_VIDEODRIVER=dummy ZEVIC_SDL2_FRAMES=20 ZEVIC_SDL2_SHOT=shot.bmp zevpm run` (`scripts/smoke-examples.sh` does it for all of them).
 
 ## Tests
 
@@ -135,7 +143,9 @@ The tests call `Sdl2.Headless()`, which switches SDL to its dummy video and audi
 - Audio uses SDL's queue API instead of callbacks (Zevic passes only non-capturing `fn`).
 - `Renderer.Text` uses a built-in 8x8 font (ASCII only), so quick text needs no SDL_ttf and no font files; use `Sdl2.Ttf` for real fonts and non-ASCII text. Non-ASCII characters draw as `?`.
 - SDL2_image, SDL2_mixer and SDL2_ttf are loaded at run time with `SDL_LoadObject`, not linked. A program that never calls `Image.Init()`, `Mixer.Init()` or `Ttf.Init()` needs only SDL2. Set `ZEVIC_SDL2_IMAGE` / `ZEVIC_SDL2_MIXER` / `ZEVIC_SDL2_TTF` to a library path if yours is somewhere unusual.
-- Not covered yet: joysticks that are not game controllers, haptics, window icons.
+- `Circle` and `FillCircle` use the midpoint algorithm (and one line per row for the filled one), `FillTriangle` fills row by row; both are done inside the shim in one pass, so a circle costs a few SDL calls and not one per pixel. They honour the draw colour and blend mode like every other drawing call.
+- A `Canvas` is a render-target texture. A new one is cleared to transparent, and erasing is drawing with alpha 0 while the draw blend mode is `0` (the default).
+- Not covered yet: joysticks that are not game controllers, haptics, file drops.
 
 ## License
 
