@@ -1,64 +1,201 @@
 name: ci
 
+# Every push to main and every pull request builds zevic and tests the package on Linux, macOS and Windows:
+#   test (ubuntu, macos)  the real SDL2 of the system, SDL's dummy drivers (no window, no sound)
+#   windows               the Windows machine of GitHub with the official SDL2 packages for Visual C++
+#   windows-cross         a 64-bit Windows build with mingw-w64 libraries, run under Wine
+# The examples are built, and the ones that can run alone run for 20 frames and save a screenshot that is checked.
+#
+# A push to main that passes everything also releases: when the `version` in zevic.toml has no tag yet,
+# the release job creates the tag vX.Y.Z and a GitHub release (the notes are the `## X.Y.Z` section of CHANGELOG.md).
+# To release: raise `version` in zevic.toml, add a `## X.Y.Z` section to CHANGELOG.md, push to main.
+
 on:
   push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # the zevic that builds and tests the package
+  ZEVIC_REF: v0.4.1
+  SDL_VIDEODRIVER: dummy
+  SDL_AUDIODRIVER: dummy
 
 jobs:
   test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
     env:
-      SDL_VIDEODRIVER: dummy
-      SDL_AUDIODRIVER: dummy
+      ZEVIC_HOME: ${{ github.workspace }}/zevic
+      ZEVIC: ${{ github.workspace }}/zevic/build/zevic
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Install SDL2 (Linux)
+      - uses: actions/checkout@v7
+        with:
+          repository: zevic-lang/zevic
+          ref: ${{ env.ZEVIC_REF }}
+          path: zevic
+
+      - name: Install SDL2 and clang (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev clang
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev clang
 
       - name: Install SDL2 (macOS)
         if: runner.os == 'macOS'
         run: brew install sdl2 sdl2_image sdl2_mixer sdl2_ttf
 
-      - name: Build the Zevic toolchain
-        run: |
-          git clone --depth 1 https://github.com/zevic-lang/zevic.git "$RUNNER_TEMP/zevic"
-          make -C "$RUNNER_TEMP/zevic"
-          echo "$RUNNER_TEMP/zevic/build" >> "$GITHUB_PATH"
-          echo "ZEVIC_HOME=$RUNNER_TEMP/zevic" >> "$GITHUB_ENV"
+      - name: Build zevic
+        run: make -C zevic
 
       - name: Check formatting
-        run: zevfmt -check .
+        run: zevic/build/zevfmt -check .
 
       - name: Test
-        run: zevpm2 test
+        run: zevic/build/zevpm2 test
 
-      - name: Build the examples
+      - name: Build the examples and run the ones that can run alone
+        run: scripts/smoke-examples.sh "$ZEVIC_HOME/build/zevpm2"
+
+  windows:
+    name: test (windows-latest)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    env:
+      ZEVIC_HOME: ${{ github.workspace }}\zevic
+      ZEVIC: ${{ github.workspace }}\zevic\build\zevic.exe
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/checkout@v7
+        with:
+          repository: zevic-lang/zevic
+          ref: ${{ env.ZEVIC_REF }}
+          path: zevic
+
+      # zevic turns Zevic into LLVM IR and asks clang to build it
+      - name: Install LLVM
         run: |
-          for d in examples/*/; do
-            echo "== $d"
-            (cd "$d" && zevpm2 build)
+          if ! command -v clang >/dev/null 2>&1 && [ ! -x "/c/Program Files/LLVM/bin/clang.exe" ]; then
+            winget install --id LLVM.LLVM -e --silent --accept-package-agreements --accept-source-agreements
+          fi
+          echo "C:\\Program Files\\LLVM\\bin" >> "$GITHUB_PATH"
+
+      # the same steps as the CI of zevic itself: the seed from the committed IR, then the tools from their sources
+      - name: Build zevic
+        working-directory: zevic
+        run: |
+          export ZEVIC_HOME="$PWD"
+          mkdir -p build
+          sh tools/bootstrap-build.sh build/zevic-seed.exe
+          build/zevic-seed.exe $(ls tools/zevic1/src/*.zev | sort) -o build/zevic.exe
+          build/zevic.exe --version
+          build/zevic.exe tools/zevpm/src/*.zev -o build/zevpm.exe
+          build/zevic.exe tools/zevfmt/src/*.zev -o build/zevfmt.exe
+          build/zevpm.exe --version
+
+      # the official packages for Visual C++ have the import libraries and the DLLs; their headers lie directly
+      # in include/, and the shim includes <SDL2/SDL.h>, so they are copied into an SDL2 folder
+      - name: Get the SDL2 development files
+        run: |
+          D="$RUNNER_TEMP/sdl"
+          mkdir -p "$D/include/SDL2" "$D/lib" "$D/bin"
+          get() { # url, name
+            curl -fsSL -o "$D/$2.zip" "$1"
+            7z x -y -o"$D" "$D/$2.zip" > /dev/null
+          }
+          get https://github.com/libsdl-org/SDL/releases/download/release-2.30.0/SDL2-devel-2.30.0-VC.zip sdl
+          get https://github.com/libsdl-org/SDL_image/releases/download/release-2.8.2/SDL2_image-devel-2.8.2-VC.zip image
+          get https://github.com/libsdl-org/SDL_mixer/releases/download/release-2.8.0/SDL2_mixer-devel-2.8.0-VC.zip mixer
+          get https://github.com/libsdl-org/SDL_ttf/releases/download/release-2.22.0/SDL2_ttf-devel-2.22.0-VC.zip ttf
+          for p in SDL2-2.30.0 SDL2_image-2.8.2 SDL2_mixer-2.8.0 SDL2_ttf-2.22.0; do
+            cp "$D/$p"/include/*.h "$D/include/SDL2/"
+            cp "$D/$p"/lib/x64/*.lib "$D/lib/"
+            cp "$D/$p"/lib/x64/*.dll "$D/bin/"
           done
+          ls "$D/lib" "$D/bin"
+          {
+            echo "C_INCLUDE_PATH=$(cygpath -w "$D/include")"
+            echo "LIB=$(cygpath -w "$D/lib")"
+            echo "LIBRARY_PATH=$(cygpath -w "$D/lib")"
+          } >> "$GITHUB_ENV"
+          cygpath -w "$D/bin" >> "$GITHUB_PATH"
+
+      - name: Test
+        run: zevic/build/zevpm.exe test
+
+      - name: Build the examples and run the ones that can run alone
+        run: scripts/smoke-examples.sh "$ZEVIC_HOME/build/zevpm.exe"
 
   windows-cross:
-    # Builds for 64-bit Windows with zig's bundled clang and runs the tests under Wine against the official
-    # SDL2 Windows DLLs. It checks the Win32 build of the shim and the Zevic code, not the MSVC toolchain.
+    # Builds for 64-bit Windows with zig's bundled clang and runs the tests and the examples under Wine against
+    # the official SDL2 Windows DLLs (mingw-w64 ABI).
+    name: test (windows, mingw under Wine)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ZEVIC_HOME: ${{ github.workspace }}/zevic
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+
+      - uses: actions/checkout@v7
+        with:
+          repository: zevic-lang/zevic
+          ref: ${{ env.ZEVIC_REF }}
+          path: zevic
 
       - name: Install Wine and clang
-        run: sudo apt-get update && sudo apt-get install -y wine64 clang
-
-      - name: Build the Zevic toolchain
         run: |
-          git clone --depth 1 https://github.com/zevic-lang/zevic.git "$RUNNER_TEMP/zevic"
-          make -C "$RUNNER_TEMP/zevic"
+          sudo apt-get update
+          sudo apt-get install -y wine64 clang
+
+      - name: Build zevic
+        run: make -C zevic
 
       - name: Test on Windows (Wine)
-        run: ZEVIC_HOME="$RUNNER_TEMP/zevic" ./scripts/windows-check.sh
+        run: ./scripts/windows-check.sh
+
+  release:
+    name: release
+    needs: [test, windows, windows-cross]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Release the version in zevic.toml if it has no tag yet
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NAME="$(sed -n 's/^name = "\(.*\)"/\1/p' zevic.toml | head -n 1)"
+          VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' zevic.toml | head -n 1)"
+          TAG="v$VERSION"
+          if git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
+            echo "$TAG already exists: nothing to release"
+            exit 0
+          fi
+          # the changelog has to describe the version that is released
+          grep -q "^## $VERSION\$" CHANGELOG.md
+          awk -v v="$VERSION" '$0 == "## " v { on = 1; next } /^## / { on = 0 } on' CHANGELOG.md > notes.md
+          git archive --format=tar.gz --prefix="$NAME-$VERSION/" -o "$NAME-$VERSION.tar.gz" HEAD
+          gh release create "$TAG" "$NAME-$VERSION.tar.gz" --target "$GITHUB_SHA" --title "$TAG" --notes-file notes.md
+          echo "released $TAG"
