@@ -60,13 +60,13 @@ jobs:
         run: make -C zevic
 
       - name: Check formatting
-        run: zevic/build/zevfmt -check .
+        run: scripts/annotate.sh "formatting" zevic/build/zevfmt -check src tests examples
 
       - name: Test
-        run: zevic/build/zevpm2 test
+        run: scripts/annotate.sh "zevpm test" zevic/build/zevpm2 test
 
       - name: Build the examples and run the ones that can run alone
-        run: scripts/smoke-examples.sh "$ZEVIC_HOME/build/zevpm2"
+        run: scripts/annotate.sh "examples" scripts/smoke-examples.sh "$ZEVIC_HOME/build/zevpm2"
 
   windows:
     name: test (windows-latest)
@@ -136,10 +136,10 @@ jobs:
           cygpath -w "$D/bin" >> "$GITHUB_PATH"
 
       - name: Test
-        run: zevic/build/zevpm.exe test
+        run: scripts/annotate.sh "zevpm test" zevic/build/zevpm.exe test
 
       - name: Build the examples and run the ones that can run alone
-        run: scripts/smoke-examples.sh "$ZEVIC_HOME/build/zevpm.exe"
+        run: scripts/annotate.sh "examples" scripts/smoke-examples.sh "$ZEVIC_HOME/build/zevpm.exe"
 
   windows-cross:
     # Builds for 64-bit Windows with zig's bundled clang and runs the tests and the examples under Wine against
@@ -167,7 +167,7 @@ jobs:
         run: make -C zevic
 
       - name: Test on Windows (Wine)
-        run: ./scripts/windows-check.sh
+        run: scripts/annotate.sh "windows-check" ./scripts/windows-check.sh
 
   release:
     name: release
