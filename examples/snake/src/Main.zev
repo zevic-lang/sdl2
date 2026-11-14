@@ -1,0 +1,216 @@
+module Main
+
+import Sdl2
+import Zevic.Console
+import Zevic.Random
+
+// Snake on a 32 x 20 grid. Arrow keys or WASD steer. Until you press a key a simple computer player steers
+// (it heads for the food and avoids walls and its own body). When the snake dies, Space starts again. Escape quits.
+
+let Cols: I32 = 32
+let Rows: I32 = 20
+let Cell: I32 = 20
+let Top: I32 = 24
+let MoveEvery: I32 = 6
+
+// Is (x, y) on the snake or outside the grid?
+fn blocked(xs: Array<I32>, ys: Array<I32>, x: I32, y: I32) -> Bool {
+    if (x < 0 || y < 0 || x >= Cols || y >= Rows) { return true }
+    mut i: I64 = 0
+    while (i < xs.Len()) {
+        if (xs[i] == x && ys[i] == y) { return true }
+        i += 1
+    }
+    false
+}
+
+fn absI(v: I32) -> I32 { if (v < 0) { 0 - v } else { v } }
+
+// The computer's choice: of the three turns it may take, the free one that gets closest to the food.
+// Returns the direction as dx, dy; keeps going straight when everything is blocked.
+fn steer(xs: Array<I32>, ys: Array<I32>, dx: I32, dy: I32, fx: I32, fy: I32) -> (I32, I32) {
+    // straight, left, right
+    let tx: Array<I32> = [dx, dy, 0 - dy]
+    let ty: Array<I32> = [dy, 0 - dx, dx]
+    mut bestX: I32 = dx
+    mut bestY: I32 = dy
+    mut best: I32 = 1000000
+    mut i: I64 = 0
+    while (i < 3) {
+        let nx: I32 = xs[0] + tx[i]
+        let ny: I32 = ys[0] + ty[i]
+        // the tail moves away this step, so it is free to step on
+        let tail: Bool = nx == xs[xs.Len() - 1] && ny == ys[ys.Len() - 1]
+        if (tail || !blocked(xs, ys, nx, ny)) {
+            let d: I32 = absI(nx - fx) + absI(ny - fy)
+            if (d < best) {
+                best = d
+                bestX = tx[i]
+                bestY = ty[i]
+            }
+        }
+        i += 1
+    }
+    (bestX, bestY)
+}
+
+fn food(mut rng: Random.Rng, xs: Array<I32>, ys: Array<I32>) -> (I32, I32) {
+    loop {
+        let x: I32 = rng.Int(0, Cols.ToI64()).ToI32().Unwrap()
+        let y: I32 = rng.Int(0, Rows.ToI64()).ToI32().Unwrap()
+        if (!blocked(xs, ys, x, y)) {
+            return (x, y)
+        }
+    }
+}
+
+fn Main() {
+    Sdl2.Init().Unwrap()
+    defer Sdl2.Quit()
+    let win: Sdl2.Window = Sdl2.Window.Open("snake", Cols * Cell, Rows * Cell + Top).Unwrap()
+    defer win.Close()
+    let ren: Sdl2.Renderer = win.Renderer().Unwrap()
+    defer ren.Close()
+    let pump: Sdl2.EventPump = Sdl2.EventPump.New()
+    defer pump.Close()
+
+    mut rng: Random.Rng = Random.Rng.Seeded()
+    mut xs: Array<I32> = [10, 9, 8]
+    mut ys: Array<I32> = [10, 10, 10]
+    mut dx: I32 = 1
+    mut dy: I32 = 0
+    // the direction asked for; it is applied at the next step, so two quick turns cannot reverse the snake
+    mut wantX: I32 = 1
+    mut wantY: I32 = 0
+    let (f0x, f0y): (I32, I32) = food(rng, xs, ys)
+    mut fx: I32 = f0x
+    mut fy: I32 = f0y
+    mut score: I32 = 0
+    mut best: I32 = 0
+    mut human: Bool = false
+    mut dead: Bool = false
+    mut tick: I32 = 0
+
+    mut clock: Sdl2.Clock = Sdl2.Clock.New(60)
+    mut frame: I32 = 0
+    mut running: Bool = true
+    while (running) {
+        while (true) {
+            match (pump.Poll()) {
+                Some(ev) => match (ev) {
+                    Sdl2.Event.Quit => { running = false },
+                    Sdl2.Event.KeyDown(key, _) => {
+                        let name: String = Sdl2.KeyName(key)
+                        if (key == Sdl2.KeyEscape) { running = false }
+                        mut tx: I32 = 0
+                        mut ty: I32 = 0
+                        if (key == Sdl2.KeyLeft || name == "A") { tx = -1 }
+                        if (key == Sdl2.KeyRight || name == "D") { tx = 1 }
+                        if (key == Sdl2.KeyUp || name == "W") { ty = -1 }
+                        if (key == Sdl2.KeyDown || name == "S") { ty = 1 }
+                        if (tx != 0 || ty != 0) {
+                            human = true
+                            // never straight back into the neck
+                            if (tx != 0 - dx || ty != 0 - dy) {
+                                wantX = tx
+                                wantY = ty
+                            }
+                        }
+                        if (key == Sdl2.KeySpace && dead) {
+                            xs = [10, 9, 8]
+                            ys = [10, 10, 10]
+                            dx = 1
+                            dy = 0
+                            wantX = 1
+                            wantY = 0
+                            score = 0
+                            dead = false
+                            let (nx, ny): (I32, I32) = food(rng, xs, ys)
+                            fx = nx
+                            fy = ny
+                        }
+                    },
+                    _ => {},
+                },
+                None => break,
+            }
+        }
+
+        tick += 1
+        if (!dead && tick >= MoveEvery) {
+            tick = 0
+            if (human) {
+                dx = wantX
+                dy = wantY
+            } else {
+                let (sx, sy): (I32, I32) = steer(xs, ys, dx, dy, fx, fy)
+                dx = sx
+                dy = sy
+            }
+            let nx: I32 = xs[0] + dx
+            let ny: I32 = ys[0] + dy
+            let eats: Bool = nx == fx && ny == fy
+            let tail: Bool = nx == xs[xs.Len() - 1] && ny == ys[ys.Len() - 1]
+            if (blocked(xs, ys, nx, ny) && !(tail && !eats)) {
+                dead = true
+                if (score > best) { best = score }
+            } else {
+                // the new head in front, the old body behind it, and the tail only if the snake did not eat
+                mut nxs: Array<I32> = [nx]
+                mut nys: Array<I32> = [ny]
+                let keep: I64 = if (eats) { xs.Len() } else { xs.Len() - 1 }
+                mut i: I64 = 0
+                while (i < keep) {
+                    nxs.Push(xs[i])
+                    nys.Push(ys[i])
+                    i += 1
+                }
+                xs = nxs
+                ys = nys
+                if (eats) {
+                    score += 1
+                    let (ax, ay): (I32, I32) = food(rng, xs, ys)
+                    fx = ax
+                    fy = ay
+                }
+            }
+        }
+
+        ren.Color(14, 18, 28, 255)
+        ren.Clear()
+        ren.Color(22, 28, 42, 255)
+        ren.FillRect(0, Top, Cols * Cell, Rows * Cell)
+        // the food
+        ren.Color(235, 70, 70, 255)
+        ren.FillCircle(fx * Cell + Cell / 2, Top + fy * Cell + Cell / 2, Cell / 2 - 2)
+        // the snake: head brighter than the body
+        mut i: I64 = 0
+        while (i < xs.Len()) {
+            if (i == 0) { ren.Color(140, 240, 120, 255) } else { ren.Color(70, 180, 90, 255) }
+            ren.FillRect(xs[i] * Cell + 1, Top + ys[i] * Cell + 1, Cell - 2, Cell - 2)
+            i += 1
+        }
+        ren.Color(220, 220, 220, 255)
+        ren.Text(8, 8, "score ${score}   best ${best}", 1)
+        if (!human) {
+            ren.Color(140, 140, 160, 255)
+            ren.Text(Cols * Cell - 250, 8, "arrow keys or WASD to play", 1)
+        }
+        if (dead) {
+            ren.Color(255, 220, 90, 255)
+            let msg: String = "game over"
+            ren.Text((Cols * Cell - Sdl2.TextWidth(msg, 4)) / 2, 180, msg, 4)
+            ren.Color(200, 200, 200, 255)
+            let again: String = "Space: play again"
+            ren.Text((Cols * Cell - Sdl2.TextWidth(again, 1)) / 2, 230, again, 1)
+        }
+
+        if (Sdl2.SmokeDone(ren, frame)) {
+            Console.Println("score ${score}, best ${best}, length ${xs.Len()}")
+            break
+        }
+        ren.Present()
+        clock.Tick()
+        frame += 1
+    }
+}
