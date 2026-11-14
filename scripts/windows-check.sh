@@ -77,19 +77,10 @@ for dir in "$here"/examples/*/; do
             echo "  ok    $name: $out" ;;
         shapes|plasma|paint|particles|pong|snake)
             # ZEVIC_SDL2_FRAMES ends the program after 20 frames; ZEVIC_SDL2_SHOT saves the last one (a relative
-            # name, so that it is found on both sides of Wine). The picture must be a BMP with more than one colour.
+            # name, so that it is found on both sides of Wine). The picture must be a BMP with more than three colours.
             rm -f "$dir/smoke.bmp"
             out="$(cd "$dir" && ZEVIC_SDL2_FRAMES=20 ZEVIC_SDL2_SHOT=smoke.bmp timeout 120 wine "build/$exe.exe" | tr -d '\r' | tail -1)"
-            python3 -I - "$dir/smoke.bmp" <<'EOPY'
-import sys
-data = open(sys.argv[1], "rb").read()
-assert data[:2] == b"BM", "not a BMP"
-w, h, bpp = int.from_bytes(data[18:22], "little"), int.from_bytes(data[22:26], "little", signed=True), int.from_bytes(data[28:30], "little")
-off = int.from_bytes(data[10:14], "little")
-px = {data[i:i + bpp // 8] for i in range(off, len(data), bpp // 8)}
-assert len(px) > 3, "the picture has only %d colours" % len(px)
-print("  ok    screenshot %dx%d, %d colours" % (w, abs(h), len(px)))
-EOPY
+            python3 -I "$here/scripts/check-bmp.py" "$dir/smoke.bmp"
             rm -f "$dir/smoke.bmp"
             echo "  ok    $name ran 20 frames${out:+: $out}" ;;
         *) echo "  ok    $name (built)" ;;
