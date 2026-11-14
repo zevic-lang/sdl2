@@ -331,6 +331,28 @@ test "a canvas starts transparent" {
     teardown(win, ren)
 }
 
+test "drawing with alpha 0 erases a canvas (the paint example's eraser)" {
+    let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
+    ren.Color(10, 20, 30, 255)
+    ren.Clear()
+    let canvas: Sdl2.Texture = ren.Canvas(32, 32).Unwrap()
+    ren.SetTarget(canvas).Unwrap()
+    ren.Color(255, 0, 0, 255)
+    ren.FillRect(0, 0, 32, 32)
+    ren.Color(0, 0, 0, 0)
+    ren.FillCircle(16, 16, 6)
+    ren.ResetTarget()
+    canvas.Draw(0, 0)
+    let px: Array<U32> = ren.ReadPixels(0, 0, 64, 48).Unwrap()
+    // red outside the hole, the background showing through it
+    Test.Equal(pixel(px, 2, 2), 0xFFFF0000_U32)
+    Test.Equal(pixel(px, 16, 16), 0xFF0A141E_U32)
+    Test.Equal(pixel(px, 16, 21), 0xFF0A141E_U32)
+    Test.Equal(pixel(px, 16, 23), 0xFFFF0000_U32)
+    canvas.Close()
+    teardown(win, ren)
+}
+
 test "texture blend modes" {
     let (win, ren): (Sdl2.Window, Sdl2.Renderer) = setup()
     blank(ren)
