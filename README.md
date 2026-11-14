@@ -31,11 +31,19 @@ import Sdl2.Ttf as Ttf            // optional, needs SDL2_ttf installed
 
 The library uses only portable SDL2 calls, so the same source builds on Windows. It does not use SDL2main: the shim calls `SDL_SetMainReady()` itself, and Zevic programs keep their normal `Main`.
 
-1. Get the SDL2 development files and put the headers and `SDL2.lib` where clang can find them, for example with [vcpkg](https://vcpkg.io): `vcpkg install sdl2:x64-windows` and set the `INCLUDE` and `LIB` environment variables to `installed\x64-windows\include` and `installed\x64-windows\lib` (the shim includes `<SDL2/SDL.h>`).
-2. Put `SDL2.dll` next to your program. For the optional modules also put `SDL2_image.dll`, `SDL2_mixer.dll` or `SDL2_ttf.dll` there; they are loaded when you call `Init()`.
-3. `zevpm build` / `zevpm run` as usual. File names are UTF-8 in Zevic and SDL converts them, so paths such as `画像\ねこ.png` work.
+1. Install LLVM (`winget install LLVM.LLVM`) and the Visual Studio Build Tools, as for any Zevic program, and open an "x64 Native Tools Command Prompt" so that the `INCLUDE` and `LIB` variables point at the Visual C++ and Windows SDK files.
+2. Get the SDL2 development files: the `SDL2-devel-2.30.0-VC.zip` package from [libsdl.org](https://github.com/libsdl-org/SDL/releases) (and, for the optional modules, `SDL2_image`, `SDL2_mixer` and `SDL2_ttf` the same way). Its headers lie directly in `include\`, but the shim includes `<SDL2/SDL.h>`, so copy them into an `include\SDL2` folder. Add that `include` folder to `INCLUDE` and the `lib\x64` folder to `LIB`.
+3. Put `SDL2.dll` next to your program (or on `PATH`). For the optional modules also put `SDL2_image.dll`, `SDL2_mixer.dll` or `SDL2_ttf.dll` there; they are loaded when you call `Init()`.
+4. `zevpm build` / `zevpm run` as usual. File names are UTF-8 in Zevic and SDL converts them, so paths such as `画像\ねこ.png` work.
 
-What has been checked: `scripts/windows-check.sh` builds the tests and all examples for 64-bit Windows from Linux (zig's bundled clang, mingw-w64 ABI) and runs them under Wine against the official SDL2 / SDL2_image / SDL2_mixer / SDL2_ttf DLLs with SDL's dummy drivers. It does not replace a run on a real Windows machine with the MSVC toolchain, which these steps describe but have not been run.
+The `windows` job in `.github/workflows/ci.yml` does exactly this on a `windows-latest` machine of GitHub, so it is a working script of the steps. `vcpkg install sdl2:x64-windows` should work as well, but it has not been tried.
+
+What has been checked, on every push:
+
+- **A real Windows machine** (`windows-latest`, clang from LLVM with the Visual C++ libraries, the official SDL2, SDL2_image, SDL2_mixer and SDL2_ttf Visual C++ packages, SDL's dummy drivers): all tests, and every example is built; `hello`, `framebuffer`, `beep`, `shapes`, `plasma`, `paint`, `particles`, `pong` and `snake` run for 20 frames, and the screenshots of the last six are checked to be real pictures.
+- **mingw under Wine** (`scripts/windows-check.sh`): the same tests and examples for 64-bit Windows built from Linux with zig's bundled clang and run under Wine against the official mingw DLLs.
+
+Not checked: a window and a sound card on a real Windows desktop (the checks use SDL's dummy drivers), 32-bit Windows, ARM64 Windows.
 
 ## Quick start
 

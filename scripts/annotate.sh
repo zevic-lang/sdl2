@@ -18,5 +18,10 @@ if [ "$code" -ne 0 ]; then
     rm -f "$log.body"
     echo "::error title=${title} (exit ${code})::${body}"
 fi
+if [ "$code" -eq 0 ]; then
+    # the last line of a good run is the summary ("62 passed, 0 failed"): show it on the summary page too
+    last="$(grep -v '^[[:space:]]*$' "$log" | tail -n 1 | tr -d '\r' | sed -e 's/%/%25/g')"
+    echo "::notice title=${title}::${last}"
+fi
 rm -f "$log"
 exit "$code"
