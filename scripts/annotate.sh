@@ -12,7 +12,7 @@ code="${PIPESTATUS[0]}"
 if [ "$code" -ne 0 ]; then
     # annotations are one line: % \r and \n have to be escaped
     # the lines that say what went wrong first, then the end of the output
-    { grep -E 'FAIL|error|Error|fatal|panic' "$log" | head -n 15; echo "--- end of the output ---"; tail -n 12 "$log"; } \
+    { grep -E -A2 'FAIL|error|Error|fatal|panic' "$log" | head -n 24; echo "--- end of the output ---"; tail -n 12 "$log"; } \
         | tr -d '\r' | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}' > "$log.body"
     body="$(cat "$log.body")"
     rm -f "$log.body"

@@ -462,11 +462,20 @@ void zsdl_window_restore(void *w) { SDL_RestoreWindow((SDL_Window *)w); }
 void zsdl_window_bordered(void *w, int on) { SDL_SetWindowBordered((SDL_Window *)w, on ? SDL_TRUE : SDL_FALSE); }
 
 // ---- smoke-test hook for examples: ZEVIC_SDL2_FRAMES=N makes a program end after N frames ----
+// getenv on Linux and macOS, where Zevic's Env.Set uses setenv. On Windows SDL_getenv reads the process environment
+// that Zevic's Env.Set (_wputenv_s) writes to.
+static const char *env_get(const char *name) {
+#ifdef _WIN32
+    return SDL_getenv(name);
+#else
+    return getenv(name);
+#endif
+}
 int zsdl_env_int(const char *name, int dflt) {
-    const char *v = SDL_getenv(name);
+    const char *v = env_get(name);
     return v && *v ? atoi(v) : dflt;
 }
 const char *zsdl_env_str(const char *name) {
-    const char *v = SDL_getenv(name);
+    const char *v = env_get(name);
     return v ? v : "";
 }
