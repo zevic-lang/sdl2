@@ -1,0 +1,106 @@
+module Main
+
+import Sdl2
+import Zevic.Math
+
+// Circles and triangles: rings that breathe, two spinning triangles and a necklace of dots.
+// Space switches between filled shapes and outlines, Escape quits.
+
+// A colour that runs through the rainbow as h grows (h in radians).
+fn rainbow(h: F64) -> (I32, I32, I32) {
+    let r: I32 = (128.0 + 127.0 * Math.Sin(h)).ToI32()
+    let g: I32 = (128.0 + 127.0 * Math.Sin(h + 2.094)).ToI32()
+    let b: I32 = (128.0 + 127.0 * Math.Sin(h + 4.188)).ToI32()
+    (r, g, b)
+}
+
+fn spinner(ren: Sdl2.Renderer, cx: I32, cy: I32, radius: F64, angle: F64, filled: Bool) {
+    let third: F64 = 2.0943951
+    let x1: I32 = cx + (radius * Math.Cos(angle)).ToI32()
+    let y1: I32 = cy + (radius * Math.Sin(angle)).ToI32()
+    let x2: I32 = cx + (radius * Math.Cos(angle + third)).ToI32()
+    let y2: I32 = cy + (radius * Math.Sin(angle + third)).ToI32()
+    let x3: I32 = cx + (radius * Math.Cos(angle + 2.0 * third)).ToI32()
+    let y3: I32 = cy + (radius * Math.Sin(angle + 2.0 * third)).ToI32()
+    if (filled) {
+        ren.FillTriangle(x1, y1, x2, y2, x3, y3)
+    } else {
+        ren.Triangle(x1, y1, x2, y2, x3, y3)
+    }
+}
+
+fn Main() {
+    Sdl2.Init().Unwrap()
+    defer Sdl2.Quit()
+    let win: Sdl2.Window = Sdl2.Window.Open("shapes", 640, 400).Unwrap()
+    defer win.Close()
+    let ren: Sdl2.Renderer = win.Renderer().Unwrap()
+    defer ren.Close()
+    let pump: Sdl2.EventPump = Sdl2.EventPump.New()
+    defer pump.Close()
+
+    mut clock: Sdl2.Clock = Sdl2.Clock.New(60)
+    mut filled: Bool = true
+    mut t: F64 = 0.0
+    mut frame: I32 = 0
+    mut running: Bool = true
+    while (running) {
+        while (true) {
+            match (pump.Poll()) {
+                Some(ev) => match (ev) {
+                    Sdl2.Event.Quit => { running = false },
+                    Sdl2.Event.KeyDown(key, _) => {
+                        if (key == Sdl2.KeyEscape) { running = false }
+                        if (key == Sdl2.KeySpace) { filled = !filled }
+                    },
+                    _ => {},
+                },
+                None => break,
+            }
+        }
+
+        ren.Color(14, 18, 32, 255)
+        ren.Clear()
+
+        // rings, the biggest first so that the filled ones show
+        mut i: I32 = 7
+        while (i >= 0) {
+            let radius: I32 = 24 + i * 22 + (6.0 * Math.Sin(t * 2.0 + i.ToF64())).ToI32()
+            let (r, g, b): (I32, I32, I32) = rainbow(t + i.ToF64() * 0.5)
+            ren.Color(r, g, b, 255)
+            if (filled) {
+                ren.FillCircle(320, 200, radius)
+            } else {
+                ren.Circle(320, 200, radius)
+            }
+            i -= 1
+        }
+
+        // a necklace of dots around the rings
+        mut k: I32 = 0
+        while (k < 12) {
+            let a: F64 = t * 0.8 + k.ToF64() * 0.5236
+            let x: I32 = 320 + (190.0 * Math.Cos(a)).ToI32()
+            let y: I32 = 200 + (190.0 * Math.Sin(a)).ToI32()
+            let (r, g, b): (I32, I32, I32) = rainbow(a * 2.0)
+            ren.Color(r, g, b, 255)
+            ren.FillCircle(x, y, 7)
+            k += 1
+        }
+
+        // two triangles that turn the other way round
+        ren.Color(255, 220, 90, 255)
+        spinner(ren, 90, 200, 70.0, t * 1.5, filled)
+        ren.Color(90, 220, 255, 255)
+        spinner(ren, 550, 200, 70.0, 0.0 - t * 1.5, filled)
+
+        ren.Color(170, 170, 170, 255)
+        let mode: String = if (filled) { "filled" } else { "outline" }
+        ren.Text(10, 384, "Space: filled / outline (now ${mode})   Escape: quit", 1)
+
+        if (Sdl2.SmokeDone(ren, frame)) { break }
+        ren.Present()
+        t += clock.Tick()
+        frame += 1
+    }
+}
