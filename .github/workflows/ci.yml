@@ -53,18 +53,18 @@ jobs:
           sudo apt-get install -y libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev clang
 
       # Homebrew is not on the search paths of clang (on Apple silicon it lives in /opt/homebrew). SDL2_image,
-      # SDL2_mixer and SDL2_ttf are loaded at run time, so their files are named with the ZEVIC_SDL2_* variables.
+      # SDL2_mixer and SDL2_ttf are loaded at run time with dlopen, which also looks in ~/lib: they are linked
+      # there. (The ZEVIC_SDL2_* variables would work too, but they override the paths that some tests pass.)
       - name: Install SDL2 (macOS)
         if: runner.os == 'macOS'
         run: |
           brew install sdl2 sdl2_image sdl2_mixer sdl2_ttf
           P="$(brew --prefix)"
+          mkdir -p "$HOME/lib"
+          for l in SDL2_image SDL2_mixer SDL2_ttf; do ln -sf "$P/lib/lib$l.dylib" "$HOME/lib/lib$l.dylib"; done
           {
             echo "C_INCLUDE_PATH=$P/include"
             echo "LIBRARY_PATH=$P/lib"
-            echo "ZEVIC_SDL2_IMAGE=$P/lib/libSDL2_image.dylib"
-            echo "ZEVIC_SDL2_MIXER=$P/lib/libSDL2_mixer.dylib"
-            echo "ZEVIC_SDL2_TTF=$P/lib/libSDL2_ttf.dylib"
           } >> "$GITHUB_ENV"
 
       - name: Build zevic
