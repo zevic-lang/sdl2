@@ -1,0 +1,141 @@
+module Main
+
+import Sdl2
+import Zevic.Math
+import Zevic.Random
+
+// A fountain of sparks. Every spark is the same soft glow texture, drawn with additive blending, so where many
+// overlap they add up to white. The fountain follows the mouse once it has moved; before that it runs in a loop.
+// Space switches gravity, Escape quits.
+
+let Count: I32 = 600
+
+// A white disc that fades out towards its edge, as an alpha channel.
+fn glow(size: I32) -> Array<U32> {
+    mut px: Array<U32> = []
+    let half: F64 = size.ToF64() / 2.0
+    mut y: I32 = 0
+    while (y < size) {
+        mut x: I32 = 0
+        while (x < size) {
+            let dx: F64 = x.ToF64() + 0.5 - half
+            let dy: F64 = y.ToF64() + 0.5 - half
+            let d: F64 = Math.Sqrt(dx * dx + dy * dy) / half
+            let a: F64 = if (d >= 1.0) { 0.0 } else { (1.0 - d) * (1.0 - d) }
+            px.Push(((a * 255.0).ToI32().ToU32Wrap() << 24) | 0x00FFFFFF_U32)
+            x += 1
+        }
+        y += 1
+    }
+    px
+}
+
+fn Main() {
+    Sdl2.Init().Unwrap()
+    defer Sdl2.Quit()
+    let win: Sdl2.Window = Sdl2.Window.Open("particles", 640, 400).Unwrap()
+    defer win.Close()
+    let ren: Sdl2.Renderer = win.Renderer().Unwrap()
+    defer ren.Close()
+    let pump: Sdl2.EventPump = Sdl2.EventPump.New()
+    defer pump.Close()
+
+    let spark: Sdl2.Texture = ren.TextureFromPixels(glow(32), 32, 32).Unwrap()
+    defer spark.Close()
+    spark.SetBlend(2)
+
+    mut rng: Random.Rng = Random.Rng.New(2024)
+    mut xs: Array<F64> = []
+    mut ys: Array<F64> = []
+    mut vx: Array<F64> = []
+    mut vy: Array<F64> = []
+    mut life: Array<F64> = []
+    mut i: I32 = 0
+    while (i < Count) {
+        xs.Push(0.0)
+        ys.Push(0.0)
+        vx.Push(0.0)
+        vy.Push(0.0)
+        life.Push(0.0)
+        i += 1
+    }
+
+    mut gravity: F64 = 260.0
+    mut followMouse: Bool = false
+    mut lastMx: I32 = -1
+    mut lastMy: I32 = -1
+    mut clock: Sdl2.Clock = Sdl2.Clock.New(60)
+    mut t: F64 = 0.0
+    mut frame: I32 = 0
+    mut alive: I32 = 0
+    mut running: Bool = true
+    while (running) {
+        while (true) {
+            match (pump.Poll()) {
+                Some(ev) => match (ev) {
+                    Sdl2.Event.Quit => { running = false },
+                    Sdl2.Event.KeyDown(key, _) => {
+                        if (key == Sdl2.KeyEscape) { running = false }
+                        if (key == Sdl2.KeySpace) { gravity = 0.0 - gravity }
+                    },
+                    Sdl2.Event.MouseMove(x, y) => {
+                        if (lastMx >= 0 && (x != lastMx || y != lastMy)) { followMouse = true }
+                        lastMx = x
+                        lastMy = y
+                    },
+                    _ => {},
+                },
+                None => break,
+            }
+        }
+
+        let ex: F64 = if (followMouse) { lastMx.ToF64() } else { 320.0 + 200.0 * Math.Sin(t * 0.9) }
+        let ey: F64 = if (followMouse) { lastMy.ToF64() } else { 250.0 + 60.0 * Math.Sin(t * 1.7) }
+
+        // new sparks in the free places
+        mut born: I32 = 0
+        mut j: I32 = 0
+        while (j < Count && born < 8) {
+            let k: I64 = j.ToI64()
+            if (life[k] <= 0.0) {
+                let a: F64 = rng.Float() * 6.2831853
+                let speed: F64 = 40.0 + rng.Float() * 140.0
+                xs[k] = ex
+                ys[k] = ey
+                vx[k] = speed * Math.Cos(a) * 0.5
+                vy[k] = 0.0 - 120.0 - speed * Math.Sin(a) * 0.9
+                life[k] = 0.6 + rng.Float() * 1.4
+                born += 1
+            }
+            j += 1
+        }
+
+        let dt: F64 = clock.Tick()
+        t += dt
+        ren.Color(8, 8, 16, 255)
+        ren.Clear()
+        alive = 0
+        j = 0
+        while (j < Count) {
+            let k: I64 = j.ToI64()
+            if (life[k] > 0.0) {
+                vy[k] = vy[k] + gravity * dt
+                xs[k] = xs[k] + vx[k] * dt
+                ys[k] = ys[k] + vy[k] * dt
+                life[k] = life[k] - dt
+                // warm to cool as it ages
+                let f: F64 = if (life[k] > 1.0) { 1.0 } else { life[k] }
+                spark.SetColor((255.0 * f).ToI32(), (120.0 + 100.0 * f).ToI32(), (255.0 - 200.0 * f).ToI32(), (255.0 * f).ToI32())
+                spark.DrawScaled(xs[k].ToI32() - 12, ys[k].ToI32() - 12, 24, 24)
+                alive += 1
+            }
+            j += 1
+        }
+
+        ren.Color(170, 170, 170, 255)
+        ren.Text(10, 384, "${alive} sparks   Space: gravity   mouse: move the fountain   Escape: quit", 1)
+        if (Sdl2.SmokeDone(ren, frame)) { break }
+        ren.Present()
+        frame += 1
+    }
+}
