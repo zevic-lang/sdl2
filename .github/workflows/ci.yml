@@ -74,10 +74,10 @@ jobs:
         run: scripts/annotate.sh "formatting" zevic/build/zevfmt -check src tests examples
 
       - name: Test
-        run: scripts/annotate.sh "zevpm test" zevic/build/zevpm2 test
+        run: scripts/annotate.sh "zevpm test" zevic/build/zevpm test
 
       - name: Build the examples and run the ones that can run alone
-        run: scripts/annotate.sh "examples" scripts/smoke-examples.sh "$ZEVIC_HOME/build/zevpm2"
+        run: scripts/annotate.sh "examples" scripts/smoke-examples.sh "$ZEVIC_HOME/build/zevpm"
 
   windows:
     name: test (windows-latest)

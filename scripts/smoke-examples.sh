@@ -2,7 +2,7 @@
 # Builds every example and runs the ones that can run on their own for 20 frames, saving a screenshot of the
 # last frame and checking that it is a real picture. Used by CI on Linux, macOS and Windows.
 #
-#   scripts/smoke-examples.sh zevpm        (the zevpm to build with: zevpm2 on Linux and macOS, zevpm on Windows)
+#   scripts/smoke-examples.sh zevpm        (the zevpm to build with)
 #
 # SDL_VIDEODRIVER=dummy and SDL_AUDIODRIVER=dummy are expected to be set: no window and no sound device are needed.
 set -euo pipefail
