@@ -21,7 +21,7 @@ permissions:
 
 env:
   # the zevic that builds and tests the package
-  ZEVIC_REF: v0.4.1
+  ZEVIC_REF: v0.5.0
   SDL_VIDEODRIVER: dummy
   SDL_AUDIODRIVER: dummy
 

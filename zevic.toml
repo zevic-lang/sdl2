@@ -2,7 +2,7 @@
 name = "Sdl2"
 version = "0.5.0"
 kind = "lib"
-zevic = ">=0.4"
+zevic = ">=0.5"
 
 [native]
 libs = ["SDL2"]
