@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1
+
+- Needs Zevic 0.5 or later: the fields are written with `let` and `mut` (no change in what the package does).
+
 ## 0.5.0
 
 - Shapes: `Renderer.Circle`, `FillCircle`, `Triangle`, `FillTriangle` (done in the C shim in one pass)
