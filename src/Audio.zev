@@ -36,9 +36,9 @@ fn Init() -> Result<Unit, Error> {
 }
 
 class Device {
-    id: CInt
-    channels: I32
-    rate: I32
+    let id: CInt
+    let channels: I32
+    let rate: I32
 
     fn Init(id: CInt, channels: I32, rate: I32) {
         this.id = id

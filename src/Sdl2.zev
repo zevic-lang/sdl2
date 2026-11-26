@@ -317,7 +317,7 @@ enum Event {
 
 // Owns the buffer SDL writes events into. Call Close() when done (usually with defer).
 class EventPump {
-    e: *CVoid = Null
+    mut e: *CVoid = Null
 
     fn Init() { this.e = zsdl_event_new() }
 
@@ -383,7 +383,7 @@ fn ShowCursor(on: Bool) { zsdl_show_cursor(if (on) { 1.ToCInt() } else { 0.ToCIn
 // ---- window ----
 
 class Window {
-    p: *CVoid = Null
+    mut p: *CVoid = Null
 
     fn Init(p: *CVoid) { this.p = p }
 
@@ -452,7 +452,7 @@ class Window {
 // ---- renderer ----
 
 class Renderer {
-    p: *CVoid = Null
+    mut p: *CVoid = Null
 
     fn Init(p: *CVoid) { this.p = p }
 
@@ -590,9 +590,9 @@ class Renderer {
 }
 
 class Framebuffer {
-    r: *CVoid
-    t: *CVoid
-    w: I32
+    let r: *CVoid
+    let t: *CVoid
+    let w: I32
 
     fn Init(r: *CVoid, t: *CVoid, w: I32) {
         this.r = r
@@ -611,8 +611,8 @@ class Framebuffer {
 
 // A picture on the GPU (or the software renderer). Close it when done.
 class Texture {
-    r: *CVoid
-    t: *CVoid
+    let r: *CVoid
+    let t: *CVoid
 
     fn Init(r: *CVoid, t: *CVoid) {
         this.r = r
@@ -663,8 +663,8 @@ class Texture {
 //         ...
 //     }
 class Clock {
-    frame: F64 = 0.0
-    last: F64 = 0.0
+    mut frame: F64 = 0.0
+    mut last: F64 = 0.0
 
     // fps <= 0 means no limit (Tick only measures).
     fn Init(fps: I32) {

@@ -98,7 +98,7 @@ fn StopMusic() { zsdl_mix_halt_music() }
 
 // A short sound effect, fully decoded in memory.
 class Sound {
-    p: *CVoid = Null
+    mut p: *CVoid = Null
 
     fn Init(p: *CVoid) { this.p = p }
 
@@ -133,7 +133,7 @@ class Sound {
 
 // A longer track, streamed from the file while it plays.
 class Music {
-    p: *CVoid = Null
+    mut p: *CVoid = Null
 
     fn Init(p: *CVoid) { this.p = p }
 

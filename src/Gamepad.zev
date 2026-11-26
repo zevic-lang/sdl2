@@ -67,7 +67,7 @@ fn Stick(raw: I32, dead: F64) -> F64 {
 }
 
 class Pad {
-    p: *CVoid = Null
+    mut p: *CVoid = Null
 
     fn Init(p: *CVoid) { this.p = p }
 

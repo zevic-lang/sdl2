@@ -78,9 +78,9 @@ fn Version() -> String { String.FromCLossy(zsdl_ttf_version()) }
 
 // Rendered text as 0xAARRGGBB pixels, row by row.
 class TextImage {
-    w: I32
-    h: I32
-    px: Array<U32>
+    let w: I32
+    let h: I32
+    let px: Array<U32>
 
     fn Init(w: I32, h: I32, px: Array<U32>) {
         this.w = w
@@ -94,7 +94,7 @@ class TextImage {
 }
 
 class Font {
-    p: *CVoid = Null
+    mut p: *CVoid = Null
 
     fn Init(p: *CVoid) { this.p = p }
 
